@@ -1,4 +1,6 @@
-# NotGit
+
+![NotGit](assets/notgit.png)
+
 ### Local development
 ```bash
 git clone https://github.com/thejus03/NotGit.git
