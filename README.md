@@ -1,5 +1,7 @@
 
-![NotGit](assets/notgit.png)
+<p align="center">
+    <img src="assets/notgit.png" width="500" />
+</p>
 
 ### Local development
 ```bash
