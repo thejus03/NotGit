@@ -19,7 +19,26 @@ int main(int argc, char** argv) {
     
     CLI11_PARSE(app, argc, argv); //  Parse cli commands here!
 
-    auto s = app.get_subcommand("init");
-    std::cout << (s->parsed()) << std::endl;
+    if (app.got_subcommand("init")) {
+        std::cout << "init command called!" << std::endl;
+    } else if (app.got_subcommand("add")) {
+        std::cout << "add command called!" << std::endl;
+    } else if (app.got_subcommand("commit")) {
+        std::cout << "commit command called!" << std::endl;
+    } else if (app.got_subcommand("status")) {
+        std::cout << "status command called!" << std::endl;
+    } else if (app.got_subcommand("checkout")) {
+        std::cout << "checkout command called!" << std::endl;
+    } else if (app.got_subcommand("merge")) {
+        std::cout << "merge command called!" << std::endl;
+    } else if (app.got_subcommand("rm")) {
+        std::cout << "rm command called!" << std::endl;
+    } else if (app.got_subcommand("log")) {
+        std::cout << "log command called!" << std::endl;
+    } else if (app.got_subcommand("diff")) {
+        std::cout << "diff command called!" << std::endl;
+    } else { // command does not exist
+        return 1;
+    }
 }
 
