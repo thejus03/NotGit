@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(ngit src/main.cpp)
+add_executable(ngit src/main.cpp
+    src/CLI11.hpp)
 
 target_include_directories(ngit PRIVATE ${CMAKE_SOURCE_DIR}/src)
