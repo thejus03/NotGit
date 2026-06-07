@@ -23,7 +23,6 @@ int main(int argc, char** argv) {
     CLI11_PARSE(app, argc, argv); //  Parse cli commands here!
 
     if (app.got_subcommand("init")) {
-        std::cout << "init command called!" << std::endl;
         NotGitRepository::init(initPath);
     } else if (app.got_subcommand("add")) {
         std::cout << "add command called!" << std::endl;
