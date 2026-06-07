@@ -36,6 +36,8 @@ void NotGitRepository::init (const std::filesystem::path& path) {
     create_default_dirs(ngitPath);
     // Create the files
     create_default_files(ngitPath);
+
+    fmt::print(fg(fmt::color::green), "Initialised empty NotGit repository in {}\n", ngitPath.string());
 }
 
 static void create_default_dirs(const std::filesystem::path& ngitPath) {
