@@ -17,7 +17,7 @@ void NotGitRepository::init (const std::filesystem::path& path) {
 
     const std::filesystem::path ngitPath = path / ".ngit";
     if (std::filesystem::exists(ngitPath)) {
-        fmt::print(fmt::emphasis::bold | fg(fmt::color::yellow), "NotGit repository already exists at {} !\n", path.string());
+        fmt::print(fmt::emphasis::bold | fg(fmt::color::yellow), "NotGit repository already exists at {} !\n", fmt::styled(path.string(), fmt::emphasis::underline));
         return;
     }
 
