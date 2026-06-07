@@ -2,14 +2,15 @@
 #include <iostream>
 #include <CLI11.hpp>
 #include <string>
-#include <filesystem>
 
 int main(int argc, char** argv) {
     CLI::App app {};
     argv = app.ensure_utf8(argv);
 
-    std::string filename = "default";
-    app.add_subcommand("init", "Create an empty NotGit repository or reinitialise an exisiting one");
+    std::filesystem::path initPath = "."; // default to current path
+    auto init = app.add_subcommand("init", "Create an empty NotGit repository or reinitialise an exisiting one");
+    init->add_option("path", initPath, "Path to initialise repository")->expected(0, 1); // adds optional path to `ngit init` command
+
     app.add_subcommand("add", "Add file contents to index");
     app.add_subcommand("commit", "Record changes to repository");
     app.add_subcommand("status", "Show working tree status");
@@ -23,7 +24,7 @@ int main(int argc, char** argv) {
 
     if (app.got_subcommand("init")) {
         std::cout << "init command called!" << std::endl;
-        NotGitRepository::init(std::filesystem::current_path());
+        NotGitRepository::init(initPath);
     } else if (app.got_subcommand("add")) {
         std::cout << "add command called!" << std::endl;
     } else if (app.got_subcommand("commit")) {

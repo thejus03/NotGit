@@ -1,5 +1,6 @@
 
 #include "NotGitRepository/NotGitRepository.hpp"
+#include <filesystem>
 #include <fmt/color.h>
 #include <fstream>
 
@@ -18,12 +19,18 @@ void NotGitRepository::init (const std::filesystem::path& path) {
                 - description
         2. If .ngit/ folder already exists, then do not touch anything and return a Valid message
     */
+    std::filesystem::path absolutePath = std::filesystem::absolute(path); // converts the path provided by user to absolute path
 
-    const std::filesystem::path ngitPath = path / ".ngit";
-    if (std::filesystem::exists(ngitPath)) {
-        fmt::print(fmt::emphasis::bold | fg(fmt::color::yellow), "NotGit repository already exists at {} !\n", fmt::styled(path.string(), fmt::emphasis::underline));
-        return;
+    std::filesystem::path curr = absolutePath;
+    while (curr != curr.parent_path()) {
+        if (std::filesystem::exists(curr / ".ngit")) {
+            fmt::print(fmt::emphasis::bold | fg(fmt::color::yellow), "NotGit repository already exists at {} !\n", fmt::styled(curr.string(), fmt::emphasis::underline));
+            return;
+        }
+        curr = curr.parent_path();
     }
+
+    const std::filesystem::path ngitPath = absolutePath / ".ngit";
 
     // Create the directories
     create_default_dirs(ngitPath);
