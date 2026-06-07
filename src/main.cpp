@@ -1,6 +1,8 @@
+#include "NotGitRepository/NotGitRepository.hpp"
 #include <iostream>
-
 #include <CLI11.hpp>
+#include <string>
+#include <filesystem>
 
 int main(int argc, char** argv) {
     CLI::App app {};
@@ -21,6 +23,7 @@ int main(int argc, char** argv) {
 
     if (app.got_subcommand("init")) {
         std::cout << "init command called!" << std::endl;
+        NotGitRepository::init(std::filesystem::current_path());
     } else if (app.got_subcommand("add")) {
         std::cout << "add command called!" << std::endl;
     } else if (app.got_subcommand("commit")) {
