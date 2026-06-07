@@ -24,10 +24,7 @@ int main(int argc, char** argv) {
 
     if (app.got_subcommand("init")) {
         std::cout << "init command called!" << std::endl;
-        if (initPath.empty())  
-            NotGitRepository::init();
-        else
-            NotGitRepository::init(initPath);
+        NotGitRepository::init(initPath);
     } else if (app.got_subcommand("add")) {
         std::cout << "add command called!" << std::endl;
     } else if (app.got_subcommand("commit")) {

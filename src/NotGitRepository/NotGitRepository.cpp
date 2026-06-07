@@ -6,6 +6,7 @@
 
 static void create_default_files(const std::filesystem::path& ngitPath); 
 static void create_default_dirs(const std::filesystem::path& ngitPath);
+static bool isAlreadyNgitRepo(const std::filesystem::path& path);
 
 void NotGitRepository::init (const std::filesystem::path& path) {
     /*
@@ -19,16 +20,10 @@ void NotGitRepository::init (const std::filesystem::path& path) {
                 - description
         2. If .ngit/ folder already exists, then do not touch anything and return a Valid message
     */
-    std::filesystem::path absolutePath = std::filesystem::absolute(path); // converts the path provided by user to absolute path
+    std::filesystem::path absolutePath = std::filesystem::absolute(path);
 
-    std::filesystem::path curr = absolutePath;
-    while (curr != curr.parent_path()) {
-        if (std::filesystem::exists(curr / ".ngit")) {
-            fmt::print(fmt::emphasis::bold | fg(fmt::color::yellow), "NotGit repository already exists at {} !\n", fmt::styled(curr.string(), fmt::emphasis::underline));
-            return;
-        }
-        curr = curr.parent_path();
-    }
+    if (isAlreadyNgitRepo(absolutePath)) // if ngit repo already exists then just exit
+        return;
 
     const std::filesystem::path ngitPath = absolutePath / ".ngit";
 
@@ -54,4 +49,18 @@ static void create_default_files(const std::filesystem::path& ngitPath) {
         << "\trepositoryformatversion = 0\n"
         << "\tfilemode = true\n"
         << "\tbare = false\n";
+}
+
+// Checks for .ngit folder recursively in parent directory to determine
+// if ngit repo already exists
+static bool isAlreadyNgitRepo(const std::filesystem::path& path) {
+    std::filesystem::path curr = path;
+    while (curr != curr.parent_path()) {
+        if (std::filesystem::exists(curr / ".ngit")) {
+            fmt::print(fmt::emphasis::bold | fg(fmt::color::yellow), "NotGit repository already exists at {} !\n", fmt::styled(curr.string(), fmt::emphasis::underline));
+            return true;
+        }
+        curr = curr.parent_path();
+    }
+    return false;
 }
