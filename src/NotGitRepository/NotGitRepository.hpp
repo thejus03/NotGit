@@ -3,7 +3,7 @@
 
 class NotGitRepository {
 public: 
-    static void init(const std::filesystem::path& path);
+    static void init(const std::filesystem::path& path = "");
     
 private:
     std::filesystem::path workingDirPath_;

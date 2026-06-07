@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
     CLI::App app {};
     argv = app.ensure_utf8(argv);
 
-    std::filesystem::path initPath = "."; // default to current path
+    std::filesystem::path initPath; 
     auto init = app.add_subcommand("init", "Create an empty NotGit repository or reinitialise an exisiting one");
     init->add_option("path", initPath, "Path to initialise repository")->expected(0, 1); // adds optional path to `ngit init` command
 
@@ -24,7 +24,10 @@ int main(int argc, char** argv) {
 
     if (app.got_subcommand("init")) {
         std::cout << "init command called!" << std::endl;
-        NotGitRepository::init(initPath);
+        if (initPath.empty())  
+            NotGitRepository::init();
+        else
+            NotGitRepository::init(initPath);
     } else if (app.got_subcommand("add")) {
         std::cout << "add command called!" << std::endl;
     } else if (app.got_subcommand("commit")) {
