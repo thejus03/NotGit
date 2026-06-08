@@ -167,7 +167,7 @@ static Commit parseCommitContent(const std::string& content) {
             // we will parse commit message seperately
             break;
         } else {
-            throw std::runtime_error("Weird order for commit content");
+            continue;
         }
     }
 
