@@ -3,6 +3,7 @@
 #include <openssl/evp.h>
 #include <sstream>
 #include <iomanip>
+#include <stdexcept>
 
 std::string BaseObject::sha1() const {
     std::string data = header() + rawData();
@@ -14,6 +15,8 @@ std::string BaseObject::sha1() const {
     unsigned int hashLen;
     // Create an EVP context object
     EVP_MD_CTX* context = EVP_MD_CTX_new();
+    if (!context)
+        throw std::runtime_error("Failed to create EVP_MD_CTX");
     // Set sha1 algorithm into context
     EVP_DigestInit_ex(context, EVP_sha1(), nullptr);
     // Feed the data into the sha1 algorithm
