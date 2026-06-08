@@ -1,5 +1,7 @@
 
-<p align="center"><img src="assets/notgit.png"  /></p>
+<p align="center">
+<img src="assets/notgit.png" alt="NotGit Logo" />
+</p>
 
 ---
 
