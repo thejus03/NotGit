@@ -78,11 +78,6 @@ static void create_default_files(const std::filesystem::path& ngitPath) {
         << "\tbare = false\n";
 }
 
-// static bool isAlreadyNgitRepo(const std::filesystem::path& path) {
-//     std::optional<std::filesystem::path> workingDirectory = getNgitRepoWorkingDirectory(path);
-//     return workingDirectory.has_value();
-// }
-
 // Checks if .ngit folder has any missing files or subdirectories
 static bool isCorrupted(const std::filesystem::path& ngitPath) {
     return !std::filesystem::exists(ngitPath / "HEAD") ||
