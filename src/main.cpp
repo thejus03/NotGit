@@ -15,7 +15,9 @@ int main(int argc, char** argv) {
     auto init = app.add_subcommand("init", "Create an empty NotGit repository or reinitialise an exisiting one");
     init->add_option("path", initPath, "Path to initialise repository")->expected(0, 1); // adds optional path to `ngit init` command
 
-    app.add_subcommand("add", "Add file contents to index");
+    std::vector<std::filesystem::path> addPaths;
+    auto add = app.add_subcommand("add", "Add file contents to index");
+    add->add_option("paths", addPaths, "Files or directories to add")->required()->expected(1, -1);
     app.add_subcommand("commit", "Record changes to repository");
     app.add_subcommand("status", "Show working tree status");
     app.add_subcommand("checkout", "Switch branched or restore working tree files");
@@ -43,6 +45,9 @@ int main(int argc, char** argv) {
             NotGitRepository ngitRepo (workingDir.value());
             if (app.got_subcommand("add")) {
                 std::cout << "add command called!" << std::endl;
+                for (const auto& path : addPaths) {
+                    ngitRepo.add(path);
+                }
             } else if (app.got_subcommand("commit")) {
                 std::cout << "commit command called!" << std::endl;
             } else if (app.got_subcommand("status")) {
