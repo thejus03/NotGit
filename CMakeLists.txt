@@ -14,8 +14,10 @@ FetchContent_MakeAvailable(fmt)
 
 add_executable(ngit src/main.cpp
     src/NotGitRepository/NotGitRepository.cpp
-    src/Objects/Object.cpp
+    src/Objects/BaseObject.cpp
     src/Objects/BlobObject.cpp
+    src/Objects/TreeObject.cpp
+    src/Objects/CommitObject.cpp
     )
 
 target_include_directories(ngit PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/third_party)
