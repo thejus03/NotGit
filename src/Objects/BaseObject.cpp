@@ -1,10 +1,10 @@
 
-#include "Objects/Object.hpp"
+#include "BaseObject.hpp"
 #include <openssl/evp.h>
 #include <sstream>
 #include <iomanip>
 
-std::string Object::sha1() const {
+std::string BaseObject::sha1() const {
     std::string data = header() + rawData();
     
     // Code is slightly more verbose but this
