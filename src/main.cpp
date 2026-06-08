@@ -44,7 +44,6 @@ int main(int argc, char** argv) {
         try {
             NotGitRepository ngitRepo (workingDir.value());
             if (app.got_subcommand("add")) {
-                std::cout << "add command called!" << std::endl;
                 for (const auto& path : addPaths) {
                     ngitRepo.add(path);
                 }
