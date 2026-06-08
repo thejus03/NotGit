@@ -3,10 +3,17 @@
 #include "BaseObject.hpp"
 #include <optional>
 
+struct Commit {
+    std::string treeSHA; 
+    std::optional<std::string> parentCommitSHA; 
+    std::string author; 
+    std::string committer; 
+    std::string commitMsg;
+};
+
 class CommitObject : public BaseObject {
 public:
-    CommitObject(const std::string& treeSHA, std::optional<std::string> parentCommitSHA, 
-        const std::string& author, const std::string& committer, const std::string& commitMsg);
+    CommitObject(const Commit& commit);
 
     std::string header() const override;
     std::string rawData() const override;

@@ -2,14 +2,14 @@
 #include "CommitObject.hpp"
 #include <format>
 
-CommitObject::CommitObject(const std::string& treeSHA, std::optional<std::string> parentCommitSHA, 
-    const std::string& author, const std::string& committer, const std::string& commitMsg) 
+
+CommitObject::CommitObject(const Commit& commit) 
     :
-    treeSHA_(treeSHA),
-    parentCommitSHA_(parentCommitSHA),
-    author_(author),
-    committer_(committer),
-    commitMsg_(commitMsg),
+    treeSHA_(commit.treeSHA),
+    parentCommitSHA_(commit.parentCommitSHA),
+    author_(commit.author),
+    committer_(commit.committer),
+    commitMsg_(commit.commitMsg),
     data_(buildRawData()) {}
 
 std::string CommitObject::header() const {

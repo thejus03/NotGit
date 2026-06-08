@@ -18,8 +18,10 @@ add_executable(ngit src/main.cpp
     src/Objects/BlobObject.cpp
     src/Objects/TreeObject.cpp
     src/Objects/CommitObject.cpp
+    src/ObjectStore/ObjectStore.cpp
     )
 
 target_include_directories(ngit PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/third_party)
 find_package(OpenSSL REQUIRED)
-target_link_libraries(ngit PRIVATE fmt::fmt OpenSSL::Crypto)
+find_package(ZLIB REQUIRED)
+target_link_libraries(ngit PRIVATE fmt::fmt OpenSSL::Crypto ZLIB::ZLIB)
