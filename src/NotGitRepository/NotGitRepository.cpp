@@ -10,7 +10,7 @@ static void create_default_files(const std::filesystem::path& ngitPath);
 static void create_default_dirs(const std::filesystem::path& ngitPath);
 static bool isCorrupted(const std::filesystem::path& ngitPath);
 
-NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath) : workingDirPath_(workingDirPath), ngitDirPath_(workingDirPath / ".ngit") {
+NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath) : workingDirPath_(workingDirPath), ngitDirPath_(workingDirPath / ".ngit"), store_(ngitDirPath_ / "objects") {
 
     // throw if NotGit repo is corrupted
     if (isCorrupted(ngitDirPath_)) 
