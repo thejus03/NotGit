@@ -23,6 +23,7 @@ int main(int argc, char** argv) {
     app.add_subcommand("rm", "Switch branched or restore working tree files");
     app.add_subcommand("log", "Switch branched or restore working tree files");
     app.add_subcommand("diff", "Switch branched or restore working tree files");
+
     // Allow random commands so that error not thrown by CLI11.
     // Will be caught in else branch for cleaner error message for user.
     app.allow_extras(); 
@@ -57,11 +58,11 @@ int main(int argc, char** argv) {
             } else if (app.got_subcommand("diff")) {
                 std::cout << "diff command called!" << std::endl;
             } else { // command does not exist
-                fmt::print(fmt::emphasis::bold | fg(fmt::color::red), "\n");
+                fmt::print(fg(fmt::color::red), "ngit: '{}' is not a ngit command. Run 'ngit --help'.\n", app.remaining()[0]);
                 return 1;
             }
         } catch (std::exception& e) {
-            fmt::print(fg(fmt::color::red), "ngit: '{}' is not a ngit command. Run 'ngit --help'.\n", app.remaining()[0]);
+            fmt::print(fmt::emphasis::bold | fg(fmt::color::red), "{}\n", e.what());
             return 1;
         }
     }
