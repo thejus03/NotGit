@@ -1,10 +1,13 @@
 
 #include "NotGitRepository/NotGitRepository.hpp"
+#include "Objects/BlobObject.hpp"
 #include <filesystem>
 #include <fmt/color.h>
 #include <fstream>
 #include <optional>
 #include <stdexcept>
+#include <unordered_map>
+#include <vector>
 
 static void create_default_files(const std::filesystem::path& ngitPath); 
 static void create_default_dirs(const std::filesystem::path& ngitPath);
@@ -35,6 +38,52 @@ NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath) 
         isDetached_ = true;
     }
 
+}
+
+// Implements `ngit add [file]` command
+void NotGitRepository::add(const std::filesystem::path& path) {
+    // load existing index into map (path -> "mode sha1")
+    std::unordered_map<std::string, std::string> indexMap;
+    std::ifstream indexIn(ngitDirPath_ / "index");
+    std::string line;
+    while (std::getline(indexIn, line)) {
+        size_t lastSpace = line.rfind(' ');
+        if (lastSpace != std::string::npos)
+            indexMap[line.substr(lastSpace + 1)] = line.substr(0, lastSpace);
+    }
+    indexIn.close();
+
+    std::vector<std::filesystem::path> stack {path};
+    while (!stack.empty()) {
+        std::filesystem::path p = stack.back();
+        stack.pop_back();
+
+        if (std::filesystem::is_regular_file(p)) {
+            std::ifstream file(p, std::ios::binary);
+            std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+            BlobObject obj(data);
+            std::string sha1 = store_.write(obj);
+            std::string relativePath = std::filesystem::relative(p, workingDirPath_).string();
+
+            auto perms = std::filesystem::status(p).permissions();
+            bool isExecutable = (perms & std::filesystem::perms::owner_exec) != std::filesystem::perms::none;
+            std::string mode = isExecutable ? Mode::BLOB_E : Mode::BLOB_RW;
+
+            indexMap[relativePath] = mode + " " + sha1;
+
+        } else if (std::filesystem::is_directory(p)) {
+            for (const auto& entry : std::filesystem::directory_iterator(p)) {
+                if (entry.path().filename() == ".ngit") continue;
+                stack.push_back(entry);
+            }
+        }
+    }
+
+    // write index back
+    std::ofstream indexOut(ngitDirPath_ / "index");
+    for (const auto& [filePath, modeAndSha] : indexMap)
+        indexOut << modeAndSha << " " << filePath << "\n";
 }
 
 void NotGitRepository::init (const std::filesystem::path& path) {
