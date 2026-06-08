@@ -1,7 +1,11 @@
 #include "NotGitRepository/NotGitRepository.hpp"
+#include <exception>
+#include <filesystem>
 #include <iostream>
 #include <CLI11.hpp>
+#include <optional>
 #include <string>
+#include <fmt/color.h>
 
 int main(int argc, char** argv) {
     CLI::App app {};
@@ -24,24 +28,38 @@ int main(int argc, char** argv) {
 
     if (app.got_subcommand("init")) {
         NotGitRepository::init(initPath);
-    } else if (app.got_subcommand("add")) {
-        std::cout << "add command called!" << std::endl;
-    } else if (app.got_subcommand("commit")) {
-        std::cout << "commit command called!" << std::endl;
-    } else if (app.got_subcommand("status")) {
-        std::cout << "status command called!" << std::endl;
-    } else if (app.got_subcommand("checkout")) {
-        std::cout << "checkout command called!" << std::endl;
-    } else if (app.got_subcommand("merge")) {
-        std::cout << "merge command called!" << std::endl;
-    } else if (app.got_subcommand("rm")) {
-        std::cout << "rm command called!" << std::endl;
-    } else if (app.got_subcommand("log")) {
-        std::cout << "log command called!" << std::endl;
-    } else if (app.got_subcommand("diff")) {
-        std::cout << "diff command called!" << std::endl;
-    } else { // command does not exist
-        return 1;
+    } else {
+        std::optional<std::filesystem::path> workingDir = getNgitRepoWorkingDirectory(std::filesystem::current_path());
+        if (!workingDir.has_value()) {
+            fmt::print(fmt::emphasis::bold | fg(fmt::color::red), "fatal: not a NotGit repository (or any parent up to root)\n");
+            return 1;
+        }
+
+        try {
+            NotGitRepository ngitRepo (workingDir.value());
+            if (app.got_subcommand("add")) {
+                std::cout << "add command called!" << std::endl;
+            } else if (app.got_subcommand("commit")) {
+                std::cout << "commit command called!" << std::endl;
+            } else if (app.got_subcommand("status")) {
+                std::cout << "status command called!" << std::endl;
+            } else if (app.got_subcommand("checkout")) {
+                std::cout << "checkout command called!" << std::endl;
+            } else if (app.got_subcommand("merge")) {
+                std::cout << "merge command called!" << std::endl;
+            } else if (app.got_subcommand("rm")) {
+                std::cout << "rm command called!" << std::endl;
+            } else if (app.got_subcommand("log")) {
+                std::cout << "log command called!" << std::endl;
+            } else if (app.got_subcommand("diff")) {
+                std::cout << "diff command called!" << std::endl;
+            } else { // command does not exist
+                return 1;
+            }
+        } catch (std::exception& e) {
+            fmt::print(fmt::emphasis::bold | fg(fmt::color::red), "{}\n", e.what());
+            return 1;
+        }
     }
 }
 
