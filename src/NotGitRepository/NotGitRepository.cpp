@@ -20,15 +20,21 @@ NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath) 
     std::ifstream head(ngitDirPath_ / "HEAD");
     std::string line;
     std::getline(head, line);
-    currentBranch_ = line.substr(std::string("ref: refs/heads/").size());
-
-    // Read .ngit/heads/<currentBranch_> and get latest commit SHA-1
-    std::filesystem::path refPath = ngitDirPath_ / "refs" / "heads" / currentBranch_;
-    if (std::filesystem::exists(refPath)) {
-        std::ifstream commit(refPath);
-        std::getline(commit, line);
+    if (line.starts_with("ref: refs/heads/")) {
+        currentBranch_ = line.substr(std::string("ref: refs/heads/").size());
+        // Read .ngit/heads/<currentBranch_> and get latest commit SHA-1
+        std::filesystem::path refPath = ngitDirPath_ / "refs" / "heads" / currentBranch_;
+        if (std::filesystem::exists(refPath)) {
+            std::ifstream commit(refPath);
+            std::getline(commit, line);
+            latestCommitSHA_ = line;
+        } 
+    } else {
+        currentBranch_ = line;
         latestCommitSHA_ = line;
-    } 
+        isDetached_ = true;
+    }
+
 }
 
 void NotGitRepository::init (const std::filesystem::path& path) {

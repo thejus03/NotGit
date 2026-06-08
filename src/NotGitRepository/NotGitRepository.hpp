@@ -16,4 +16,5 @@ private:
     const std::filesystem::path ngitDirPath_;
     std::string currentBranch_;
     std::optional<std::string> latestCommitSHA_;
+    bool isDetached_;
 };
