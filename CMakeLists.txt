@@ -14,7 +14,10 @@ FetchContent_MakeAvailable(fmt)
 
 add_executable(ngit src/main.cpp
     src/NotGitRepository/NotGitRepository.cpp
+    src/Objects/Object.cpp
+    src/Objects/BlobObject.cpp
     )
 
 target_include_directories(ngit PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/third_party)
-target_link_libraries(ngit PRIVATE fmt::fmt)
+find_package(OpenSSL REQUIRED)
+target_link_libraries(ngit PRIVATE fmt::fmt OpenSSL::Crypto)
