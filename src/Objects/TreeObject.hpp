@@ -3,7 +3,11 @@
 #include "BaseObject.hpp"
 #include <vector>
 
-struct TreeEntry;
+struct TreeEntry {
+    std::string name;
+    std::string mode;
+    std::string SHA1;
+};
 
 class TreeObject : public BaseObject {
 public:
@@ -17,10 +21,4 @@ private:
 
     std::string buildRawData() const;
 
-};
-
-struct TreeEntry {
-    std::string name;
-    std::string mode;
-    std::string SHA1;
 };

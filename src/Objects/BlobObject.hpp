@@ -9,6 +9,5 @@ public:
     std::string rawData() const override;
 
 private:
-    std::string name_;
     std::string data_;
 };

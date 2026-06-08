@@ -58,7 +58,10 @@ int main(int argc, char** argv) {
             } else if (app.got_subcommand("diff")) {
                 std::cout << "diff command called!" << std::endl;
             } else { // command does not exist
-                fmt::print(fg(fmt::color::red), "ngit: '{}' is not a ngit command. Run 'ngit --help'.\n", app.remaining()[0]);
+                if (!app.remaining().empty())
+                    fmt::print(fg(fmt::color::red), "ngit: '{}' is not a ngit command. Run 'ngit --help'.\n", app.remaining().at(0));
+                else
+                    fmt::print(fg(fmt::color::red), "ngit: no command provided. Run 'ngit --help'.\n");
                 return 1;
             }
         } catch (std::exception& e) {
