@@ -1,5 +1,5 @@
 
-<p align="center"><img src="assets/notgit.png" width="500" /></p>
+<p align="center"><img src="assets/notgit.png"  /></p>
 
 ---
 
