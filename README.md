@@ -9,7 +9,7 @@
 
 **NotGit** is a Git reimplementation in *modern C++*. It is built from scratch to explore how Git works under the hood, from object storage and SHA hashing to tree traversal and commit history.
 
-the goal of this project is to learn more about git internals and to have fun doing it. It is not meant to be a replacement for git, but rather a learning tool.
+The goal of this project is to learn more about git internals and to have fun doing it. It is not meant to be a replacement for git, but rather a learning tool.
 
 ## Local development
 
