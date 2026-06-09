@@ -18,7 +18,11 @@ int main(int argc, char** argv) {
     std::vector<std::filesystem::path> addPaths;
     auto add = app.add_subcommand("add", "Add file contents to index");
     add->add_option("paths", addPaths, "Files or directories to add")->required()->expected(1, -1);
-    app.add_subcommand("commit", "Record changes to repository");
+
+    std::string commitMessage;
+    auto commit = app.add_subcommand("commit", "Record changes to repository");
+    commit->add_option("-m,--message", commitMessage, "Commit message")->required();
+
     app.add_subcommand("status", "Show working tree status");
     app.add_subcommand("checkout", "Switch branched or restore working tree files");
     app.add_subcommand("merge", "Switch branched or restore working tree files");
@@ -48,7 +52,7 @@ int main(int argc, char** argv) {
                     ngitRepo.add(path);
                 }
             } else if (app.got_subcommand("commit")) {
-                std::cout << "commit command called!" << std::endl;
+                ngitRepo.commit(commitMessage);
             } else if (app.got_subcommand("status")) {
                 std::cout << "status command called!" << std::endl;
             } else if (app.got_subcommand("checkout")) {
