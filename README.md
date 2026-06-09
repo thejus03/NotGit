@@ -1,7 +1,7 @@
 
-<p align="center">
-<img src="assets/notgit.png" alt="NotGit Logo" />
-</p>
+<div align="center">
+    <img src="assets/notgit.png" alt="NotGit" width="90%"/>
+</div>
 
 ---
 
