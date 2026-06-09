@@ -32,7 +32,7 @@ NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath) 
     std::getline(head, line);
     if (line.starts_with("ref: refs/heads/")) {
         currentBranch_ = line.substr(std::string("ref: refs/heads/").size());
-        // Read .ngit/heads/<currentBranch_> and get latest commit SHA-1
+        // Read .ngit/refs/heads/<currentBranch_> and get latest commit SHA-1
         std::filesystem::path refPath = ngitDirPath_ / "refs" / "heads" / currentBranch_;
         if (std::filesystem::exists(refPath)) {
             std::ifstream commit(refPath);
