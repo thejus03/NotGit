@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include <ctime>
 #include "Objects/CommitObject.hpp"
 
 static void create_default_files(const std::filesystem::path& ngitPath);
@@ -144,8 +145,13 @@ void NotGitRepository::commit(const std::string& message) {
     c.commitMsg = message;
     c.treeSHA = rootSHA;
     c.parentCommitSHA = latestCommitSHA_;
-    c.author = readAuthor(ngitDirPath_);
-    c.committer = c.author;
+    std::string author = readAuthor(ngitDirPath_);
+    std::time_t now = std::time(nullptr);
+    char tz[6];
+    std::strftime(tz, sizeof(tz), "%z", std::localtime(&now));
+    author += " " + std::to_string(now) + " " + tz;
+    c.author = author;
+    c.committer = author;
 
     CommitObject commit(c);
     std::string commitSHA = store_.write(commit);
