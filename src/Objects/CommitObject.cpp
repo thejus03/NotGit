@@ -18,6 +18,10 @@ std::string CommitObject::header() const {
 
 std::string CommitObject::rawData() const { return data_; }
 
+std::optional<std::string> CommitObject::parentCommitSHA() const { return parentCommitSHA_; }
+std::string CommitObject::author() const { return author_; }
+std::string CommitObject::commitMsg() const { return commitMsg_; }
+std::string CommitObject::treeSHA() const { return treeSHA_; }
 
 std::string CommitObject::buildRawData() const {
     std::string res;

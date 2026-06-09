@@ -11,8 +11,11 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include <cstdio>
 #include <ctime>
+#include <sstream>
 #include "Objects/CommitObject.hpp"
+#include <format>
 
 static void create_default_files(const std::filesystem::path& ngitPath);
 static void create_default_dirs(const std::filesystem::path& ngitPath);
@@ -141,6 +144,18 @@ void NotGitRepository::commit(const std::string& message) {
             pathToTreeEntryMap[parentPath.string()].emplace_back(path.filename().string(), Mode::TREE, treeSha1);
         }
     }
+
+    // if no files have been changed then just show `ngit status` output
+    if (latestCommitSHA_.has_value()) {
+        auto objPtr = store_.read(*latestCommitSHA_);
+        CommitObject* obj = dynamic_cast<CommitObject*>(objPtr.get());
+        
+        if (obj->treeSHA() == rootSHA) {
+            status();
+            return;
+        }
+    }
+
     Commit c;
     c.commitMsg = message;
     c.treeSHA = rootSHA;
@@ -160,6 +175,54 @@ void NotGitRepository::commit(const std::string& message) {
     latestCommitSHA_ = commitSHA;
 
     fmt::print(fg(fmt::color::green), "[{} {}] {}\n", currentBranch_, commitSHA.substr(0, 7), message);
+}
+
+void NotGitRepository::log(bool oneline) {
+    if (!latestCommitSHA_.has_value())
+        throw std::runtime_error(std::format("fatal: your current branch '{}' does not have any commits yet", currentBranch_));
+
+    std::string output;
+    std::optional<std::string> sha = latestCommitSHA_;
+
+    while (sha.has_value()) {
+        auto obj = store_.read(*sha);
+        auto* commit = dynamic_cast<CommitObject*>(obj.get());
+        if (!commit) break;
+
+        if (oneline) {
+            output += fmt::format(fg(fmt::color::yellow), "{}", sha->substr(0, 7));
+            output += std::format(" {}\n", commit->commitMsg().substr(0, commit->commitMsg().find('\n')));
+        } else {
+            // Parse "Name <email> <unix_ts> <tz>" — last two tokens are timestamp and timezone
+            const std::string& authorStr = commit->author();
+            size_t lastSpace = authorStr.rfind(' ');
+            std::string timezone = authorStr.substr(lastSpace + 1);
+            size_t secondLastSpace = authorStr.rfind(' ', lastSpace - 1);
+            std::string identity = authorStr.substr(0, secondLastSpace);
+            std::time_t ts = std::stol(authorStr.substr(secondLastSpace + 1, lastSpace - secondLastSpace - 1));
+    
+            char dateBuf[64];
+            std::strftime(dateBuf, sizeof(dateBuf), "%a %b %e %H:%M:%S %Y", std::localtime(&ts));
+            output += fmt::format(fg(fmt::color::yellow), "commit {}\n", *sha);
+            output += std::format("Author: {}\n", identity);
+            output += std::format("Date:   {} {}\n\n", dateBuf, timezone);
+            std::istringstream msgStream(commit->commitMsg());
+            std::string line;
+            while (std::getline(msgStream, line))
+                output += "    " + line + "\n";
+            output += "\n";
+        }
+
+        sha = commit->parentCommitSHA();
+    }
+
+    FILE* pager = popen("less -F -R -X", "w");
+    if (!pager) {
+        fmt::print("{}", output);
+        return;
+    }
+    fputs(output.c_str(), pager);
+    pclose(pager);
 }
 
 void NotGitRepository::init (const std::filesystem::path& path) {

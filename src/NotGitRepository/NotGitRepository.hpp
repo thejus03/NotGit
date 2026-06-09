@@ -14,7 +14,9 @@ public:
 
     void commit(const std::string& message);
 
-    void log();
+    void log(bool oneline);
+
+    void status();
 
     static void init(const std::filesystem::path& path);
      

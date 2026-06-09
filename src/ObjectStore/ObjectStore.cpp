@@ -153,6 +153,9 @@ static Commit parseCommitContent(const std::string& content) {
     while (std::getline(ss, line)) {
         size_t spacePos = line.find(' ');
         std::string fieldType = line.substr(0, spacePos);
+        // if empty line means that next line onward is commit message
+        // we will parse commit message seperately
+        if (fieldType.empty()) break;
         if (spacePos == std::string::npos) continue;
         std::string info = line.substr(spacePos + 1);
         if (fieldType == "tree") {
@@ -163,10 +166,6 @@ static Commit parseCommitContent(const std::string& content) {
             commit.author = std::move(info);
         } else if (fieldType == "committer") {
             commit.committer = std::move(info);
-        } else if (fieldType.empty()) {
-            // if empty line means that next line onward is commit message
-            // we will parse commit message seperately
-            break;
         } else {
             continue;
         }

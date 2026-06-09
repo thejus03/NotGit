@@ -27,7 +27,11 @@ int main(int argc, char** argv) {
     app.add_subcommand("checkout", "Switch branched or restore working tree files");
     app.add_subcommand("merge", "Switch branched or restore working tree files");
     app.add_subcommand("rm", "Switch branched or restore working tree files");
-    app.add_subcommand("log", "Switch branched or restore working tree files");
+
+    bool oneline = false;
+    auto log = app.add_subcommand("log", "Show commit logs");
+    log->add_flag("--oneline", oneline, "Show each commit as a single line");
+
     app.add_subcommand("diff", "Switch branched or restore working tree files");
 
     // Allow random commands so that error not thrown by CLI11.
@@ -62,7 +66,7 @@ int main(int argc, char** argv) {
             } else if (app.got_subcommand("rm")) {
                 std::cout << "rm command called!" << std::endl;
             } else if (app.got_subcommand("log")) {
-                std::cout << "log command called!" << std::endl;
+                ngitRepo.log(oneline);
             } else if (app.got_subcommand("diff")) {
                 std::cout << "diff command called!" << std::endl;
             } else { // command does not exist

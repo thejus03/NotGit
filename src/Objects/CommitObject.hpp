@@ -17,6 +17,11 @@ public:
 
     std::string header() const override;
     std::string rawData() const override;
+
+    std::optional<std::string> parentCommitSHA() const;
+    std::string author() const;
+    std::string commitMsg() const;
+    std::string treeSHA() const;
 private:
     std::string treeSHA_;
     std::optional<std::string> parentCommitSHA_;
