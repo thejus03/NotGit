@@ -225,6 +225,116 @@ void NotGitRepository::log(bool oneline) {
     pclose(pager);
 }
 
+void NotGitRepository::status() {
+    // load current state of each file
+    std::unordered_map<std::string, std::string> currentStateMap;
+    std::ifstream indexIn(ngitDirPath_ / "index");
+    std::string line;
+    while (std::getline(indexIn, line)) {
+        if (line.size() < 48) continue;
+        currentStateMap[line.substr(48)] = line.substr(7, 40);
+    }
+    indexIn.close();
+
+    // load last commit state of each file
+    std::unordered_map<std::string, std::string> lastCommitStateMap;
+    if (latestCommitSHA_.has_value()) {
+        auto commitObj = store_.read(*latestCommitSHA_);
+        auto* commit = dynamic_cast<CommitObject*>(commitObj.get());
+        std::vector<std::pair<std::string, std::string>> treeStack;
+        treeStack.push_back({commit->treeSHA(), ""});
+        while (!treeStack.empty()) {
+            auto [sha, prefix] = treeStack.back();
+            treeStack.pop_back();
+            auto treeObj = store_.read(sha);
+            auto* tree = dynamic_cast<TreeObject*>(treeObj.get());
+            for (const auto& entry : tree->entries()) {
+                std::string fullPath = prefix.empty() ? entry.name : prefix + "/" + entry.name;
+                if (entry.mode == Mode::TREE)
+                    treeStack.push_back({entry.SHA1, fullPath});
+                else
+                    lastCommitStateMap[fullPath] = entry.SHA1;
+            }
+        }
+    }
+
+    // {label, path} buckets
+    std::vector<std::pair<std::string, std::string>> staged;
+    std::vector<std::pair<std::string, std::string>> unstaged;
+    std::vector<std::string> untracked;
+
+    std::vector<std::filesystem::path> stack{workingDirPath_};
+    while (!stack.empty()) {
+        auto p = stack.back();
+        stack.pop_back();
+        if (std::filesystem::is_regular_file(p)) {
+            std::string rel = std::filesystem::relative(p, workingDirPath_).string();
+            if (!currentStateMap.contains(rel)) {
+                untracked.push_back(rel);
+            } else {
+                std::ifstream file(p, std::ios::binary);
+                std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                if (BlobObject(data).sha1() != currentStateMap[rel])
+                    unstaged.push_back({"modified", rel});
+            }
+        } else if (std::filesystem::is_directory(p)) {
+            for (const auto& entry : std::filesystem::directory_iterator(p)) {
+                if (entry.path().filename() == ".ngit") continue;
+                stack.push_back(entry);
+            }
+        }
+    }
+
+    // Unstaged deleted: in index but missing from disk
+    for (const auto& [path, sha1] : currentStateMap) {
+        if (!std::filesystem::exists(workingDirPath_ / path))
+            unstaged.push_back({"deleted", path});
+    }
+
+    // Staged changes: index vs HEAD
+    for (const auto& [path, sha] : currentStateMap) {
+        if (!lastCommitStateMap.contains(path))
+            staged.push_back({"new file", path});
+        else if (lastCommitStateMap[path] != sha)
+            staged.push_back({"modified", path});
+    }
+    // Staged deleted: in HEAD but removed from index
+    for (const auto& [path, sha1] : lastCommitStateMap) {
+        if (!currentStateMap.contains(path))
+            staged.push_back({"deleted", path});
+    }
+
+    // Print
+    fmt::print("On branch {}\n\n", currentBranch_);
+
+    if (!staged.empty()) {
+        fmt::print("Changes to be committed:\n");
+        fmt::print(fg(fmt::color::gray), "  (use \"ngit restore --staged <file>...\" to unstage)\n");
+        for (const auto& [label, path] : staged)
+            fmt::print(fg(fmt::color::green), "\t{:10}{}\n", label + ":", path);
+        fmt::print("\n");
+    }
+
+    if (!unstaged.empty()) {
+        fmt::print("Changes not staged for commit:\n");
+        fmt::print(fg(fmt::color::gray), "  (use \"ngit add <file>...\" to update what will be committed)\n");
+        for (const auto& [label, path] : unstaged)
+            fmt::print(fg(fmt::color::red), "\t{:10}{}\n", label + ":", path);
+        fmt::print("\n");
+    }
+
+    if (!untracked.empty()) {
+        fmt::print("Untracked files:\n");
+        fmt::print(fg(fmt::color::gray), "  (use \"ngit add <file>...\" to include in what will be committed)\n");
+        for (const auto& path : untracked)
+            fmt::print(fg(fmt::color::red), "\t{}\n", path);
+        fmt::print("\n");
+    }
+
+    if (staged.empty() && unstaged.empty() && untracked.empty())
+        fmt::print("nothing to commit, working tree clean\n");
+}
+
 void NotGitRepository::init (const std::filesystem::path& path) {
     /*
         1. If .ngit/ folder does not exist, then init command should:

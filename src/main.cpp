@@ -27,6 +27,7 @@ int main(int argc, char** argv) {
     app.add_subcommand("checkout", "Switch branched or restore working tree files");
     app.add_subcommand("merge", "Switch branched or restore working tree files");
     app.add_subcommand("rm", "Switch branched or restore working tree files");
+    app.add_subcommand("restore", "Switch branched or restore working tree files");
 
     bool oneline = false;
     auto log = app.add_subcommand("log", "Show commit logs");
@@ -50,7 +51,9 @@ int main(int argc, char** argv) {
         }
 
         try {
+
             NotGitRepository ngitRepo (workingDir.value());
+
             if (app.got_subcommand("add")) {
                 for (const auto& path : addPaths) {
                     ngitRepo.add(path);
@@ -58,7 +61,7 @@ int main(int argc, char** argv) {
             } else if (app.got_subcommand("commit")) {
                 ngitRepo.commit(commitMessage);
             } else if (app.got_subcommand("status")) {
-                std::cout << "status command called!" << std::endl;
+                ngitRepo.status();
             } else if (app.got_subcommand("checkout")) {
                 std::cout << "checkout command called!" << std::endl;
             } else if (app.got_subcommand("merge")) {
@@ -69,6 +72,10 @@ int main(int argc, char** argv) {
                 ngitRepo.log(oneline);
             } else if (app.got_subcommand("diff")) {
                 std::cout << "diff command called!" << std::endl;
+            } else if (app.got_subcommand("restore")) {
+                std::cout << "restore command called!" << std::endl;
+            } else if (app.got_subcommand("rm")) {
+                std::cout << "rm command called!" << std::endl;
             } else { // command does not exist
                 if (!app.remaining().empty())
                     fmt::print(fg(fmt::color::red), "ngit: '{}' is not a ngit command. Run 'ngit --help'.\n", app.remaining().at(0));

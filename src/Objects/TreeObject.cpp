@@ -23,6 +23,7 @@ std::string TreeObject::header() const {
 }
 
 std::string TreeObject::rawData() const { return data_; }
+const std::vector<TreeEntry>& TreeObject::entries() const { return entities_; }
 
 
 std::string TreeObject::buildRawData() const {

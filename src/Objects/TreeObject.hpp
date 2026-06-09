@@ -14,6 +14,7 @@ public:
     TreeObject(std::vector<TreeEntry> entities);
     std::string header() const override;
     std::string rawData() const override;
+    const std::vector<TreeEntry>& entries() const;
 
 private:
     std::vector<TreeEntry> entities_;
