@@ -12,6 +12,8 @@ public:
 
     void add(const std::filesystem::path& path);
 
+    void commit(const std::string& message);
+
     static void init(const std::filesystem::path& path);
      
 private:
