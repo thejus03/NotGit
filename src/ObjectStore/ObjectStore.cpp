@@ -1,33 +1,38 @@
 #include "ObjectStore.hpp"
-#include "Objects/BaseObject.hpp"
-#include "Objects/BlobObject.hpp"
-#include "Objects/TreeObject.hpp"
-#include "Objects/CommitObject.hpp"
+
+#include <zlib.h>
+
 #include <filesystem>
-#include <memory>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
-#include <zlib.h>
+
+#include "Objects/BaseObject.hpp"
+#include "Objects/BlobObject.hpp"
+#include "Objects/CommitObject.hpp"
+#include "Objects/TreeObject.hpp"
 
 static std::vector<TreeEntry> parseTreeContent(const std::string& content);
 static Commit parseCommitContent(const std::string& content);
 
-ObjectStore::ObjectStore(const std::filesystem::path& objectDirPath) : objectDirPath_(objectDirPath) {}
+ObjectStore::ObjectStore(const std::filesystem::path& objectDirPath)
+    : objectDirPath_(objectDirPath) {}
 
 std::unique_ptr<BaseObject> ObjectStore::read(const std::string& sha1) const {
-    if (!exists(sha1))
-        return nullptr;
+    if (!exists(sha1)) return nullptr;
     std::filesystem::path objectFilePath = objectFilePathFromSHA_(sha1);
-    std::ifstream file (objectFilePath, std::ios::binary);
-    std::string compressedData((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::ifstream file(objectFilePath, std::ios::binary);
+    std::string compressedData((std::istreambuf_iterator<char>(file)),
+                               std::istreambuf_iterator<char>());
 
     std::string decompressedData = decompress_(compressedData);
     size_t spacePos = decompressedData.find(' ');
     size_t nullPos = decompressedData.find('\0');
 
     std::string type = decompressedData.substr(0, spacePos);
-    size_t dataLen = std::stoul(decompressedData.substr(spacePos + 1, nullPos - spacePos - 1));
+    size_t dataLen = std::stoul(
+        decompressedData.substr(spacePos + 1, nullPos - spacePos - 1));
     std::string data = decompressedData.substr(nullPos + 1);
     if (dataLen != data.size())
         throw std::runtime_error("object size mismatch");
@@ -55,7 +60,9 @@ std::string ObjectStore::write(const BaseObject& obj) const {
 
         std::ofstream file(objectFilePath, std::ios::binary);
         if (!file)
-            throw std::runtime_error("failed to open object file for writing: " + objectFilePath.string());
+            throw std::runtime_error(
+                "failed to open object file for writing: " +
+                objectFilePath.string());
         file.write(compressedData.data(), compressedData.size());
     }
 
@@ -67,7 +74,8 @@ bool ObjectStore::exists(const std::string& sha1) const {
     return std::filesystem::exists(objectFilePath);
 }
 
-std::filesystem::path ObjectStore::objectFilePathFromSHA_(const std::string& sha1) const {
+std::filesystem::path ObjectStore::objectFilePathFromSHA_(
+    const std::string& sha1) const {
     return objectDirPath_ / sha1.substr(0, 2) / sha1.substr(2);
 }
 
@@ -140,7 +148,7 @@ static std::vector<TreeEntry> parseTreeContent(const std::string& content) {
             ss << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
 
         entries.push_back({name, mode, ss.str()});
-        i = nullPos + 1 + 20; // move to next entry
+        i = nullPos + 1 + 20;  // move to next entry
     }
     return entries;
 }
@@ -161,7 +169,7 @@ static Commit parseCommitContent(const std::string& content) {
         if (fieldType == "tree") {
             commit.treeSHA = std::move(info);
         } else if (fieldType == "parent") {
-            commit.parentCommitSHA = std::move(info); 
+            commit.parentCommitSHA = std::move(info);
         } else if (fieldType == "author") {
             commit.author = std::move(info);
         } else if (fieldType == "committer") {
@@ -173,12 +181,9 @@ static Commit parseCommitContent(const std::string& content) {
 
     // Parse commit message
     std::string commitMsg;
-    while (std::getline(ss, line))
-        commitMsg += line + '\n';
-    if (!commitMsg.empty() && commitMsg.back() == '\n')
-        commitMsg.pop_back();
+    while (std::getline(ss, line)) commitMsg += line + '\n';
+    if (!commitMsg.empty() && commitMsg.back() == '\n') commitMsg.pop_back();
     commit.commitMsg = std::move(commitMsg);
 
     return commit;
 }
-

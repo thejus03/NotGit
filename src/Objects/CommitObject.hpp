@@ -1,18 +1,19 @@
 #pragma once
 
-#include "BaseObject.hpp"
 #include <optional>
 
+#include "BaseObject.hpp"
+
 struct Commit {
-    std::string treeSHA; 
-    std::optional<std::string> parentCommitSHA; 
-    std::string author; 
-    std::string committer; 
+    std::string treeSHA;
+    std::optional<std::string> parentCommitSHA;
+    std::string author;
+    std::string committer;
     std::string commitMsg;
 };
 
 class CommitObject : public BaseObject {
-public:
+  public:
     CommitObject(const Commit& commit);
 
     std::string header() const override;
@@ -22,7 +23,8 @@ public:
     std::string author() const;
     std::string commitMsg() const;
     std::string treeSHA() const;
-private:
+
+  private:
     std::string treeSHA_;
     std::optional<std::string> parentCommitSHA_;
     std::string author_;

@@ -1,21 +1,24 @@
 
 #include "NotGitRepository/NotGitRepository.hpp"
-#include "Objects/BaseObject.hpp"
-#include "Objects/BlobObject.hpp"
-#include "Objects/TreeObject.hpp"
-#include <filesystem>
+
 #include <fmt/color.h>
-#include <fstream>
-#include <optional>
-#include <stdexcept>
-#include <unordered_map>
-#include <vector>
+
 #include <algorithm>
 #include <cstdio>
 #include <ctime>
-#include <sstream>
-#include "Objects/CommitObject.hpp"
+#include <filesystem>
 #include <format>
+#include <fstream>
+#include <optional>
+#include <sstream>
+#include <stdexcept>
+#include <unordered_map>
+#include <vector>
+
+#include "Objects/BaseObject.hpp"
+#include "Objects/BlobObject.hpp"
+#include "Objects/CommitObject.hpp"
+#include "Objects/TreeObject.hpp"
 
 static void create_default_files(const std::filesystem::path& ngitPath);
 static void create_default_dirs(const std::filesystem::path& ngitPath);
@@ -23,12 +26,14 @@ static bool isCorrupted(const std::filesystem::path& ngitPath);
 static std::string readAuthor(const std::filesystem::path& ngitDirPath);
 static bool customCmp(const std::string& a, const std::string& b);
 
-NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath) : workingDirPath_(workingDirPath), ngitDirPath_(workingDirPath / ".ngit"), store_(ngitDirPath_ / "objects") {
-
+NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath)
+    : workingDirPath_(workingDirPath),
+      ngitDirPath_(workingDirPath / ".ngit"),
+      store_(ngitDirPath_ / "objects") {
     // throw if NotGit repo is corrupted
-    if (isCorrupted(ngitDirPath_)) 
+    if (isCorrupted(ngitDirPath_))
         throw std::runtime_error(".ngit/ is missing or unreadable");
-    
+
     // Read .ngit/HEAD and get current branch
     std::ifstream head(ngitDirPath_ / "HEAD");
     std::string line;
@@ -36,18 +41,18 @@ NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath) 
     if (line.starts_with("ref: refs/heads/")) {
         currentBranch_ = line.substr(std::string("ref: refs/heads/").size());
         // Read .ngit/refs/heads/<currentBranch_> and get latest commit SHA-1
-        std::filesystem::path refPath = ngitDirPath_ / "refs" / "heads" / currentBranch_;
+        std::filesystem::path refPath =
+            ngitDirPath_ / "refs" / "heads" / currentBranch_;
         if (std::filesystem::exists(refPath)) {
             std::ifstream commit(refPath);
             std::getline(commit, line);
             latestCommitSHA_ = line;
-        } 
+        }
     } else {
         currentBranch_ = line;
         latestCommitSHA_ = line;
         isDetached_ = true;
     }
-
 }
 
 // Implements `ngit add [file]` command
@@ -58,7 +63,7 @@ void NotGitRepository::add(std::vector<std::filesystem::path> paths) {
     std::string line;
     while (std::getline(indexIn, line)) {
         if (line.size() < 48) continue;
-        indexMap[line.substr(48)] = line.substr(0, 47); // "mode sha1"
+        indexMap[line.substr(48)] = line.substr(0, 47);  // "mode sha1"
     }
     indexIn.close();
 
@@ -68,14 +73,17 @@ void NotGitRepository::add(std::vector<std::filesystem::path> paths) {
 
         if (std::filesystem::is_regular_file(p)) {
             std::ifstream file(p, std::ios::binary);
-            std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            std::string data((std::istreambuf_iterator<char>(file)),
+                             std::istreambuf_iterator<char>());
 
             BlobObject obj(data);
             std::string sha1 = store_.write(obj);
-            std::string relativePath = std::filesystem::relative(p, workingDirPath_).string();
+            std::string relativePath =
+                std::filesystem::relative(p, workingDirPath_).string();
 
             auto perms = std::filesystem::status(p).permissions();
-            bool isExecutable = (perms & std::filesystem::perms::owner_exec) != std::filesystem::perms::none;
+            bool isExecutable = (perms & std::filesystem::perms::owner_exec) !=
+                                std::filesystem::perms::none;
             std::string mode = isExecutable ? Mode::BLOB_E : Mode::BLOB_RW;
 
             indexMap[relativePath] = mode + " " + sha1;
@@ -90,7 +98,8 @@ void NotGitRepository::add(std::vector<std::filesystem::path> paths) {
 
     // write index back
     std::vector<std::string> filePaths;
-    for (const auto& [filePath, modeAndSha] : indexMap) filePaths.push_back(filePath);
+    for (const auto& [filePath, modeAndSha] : indexMap)
+        filePaths.push_back(filePath);
     std::sort(filePaths.begin(), filePaths.end(), customCmp);
 
     std::ofstream indexOut(ngitDirPath_ / "index");
@@ -100,10 +109,8 @@ void NotGitRepository::add(std::vector<std::filesystem::path> paths) {
     }
 }
 
-
 // Implements `ngit commit` command
 void NotGitRepository::commit(const std::string& message) {
-    
     std::unordered_map<std::string, std::vector<TreeEntry>> pathToTreeEntryMap;
     std::ifstream indexIn(ngitDirPath_ / "index");
     std::string line;
@@ -113,7 +120,8 @@ void NotGitRepository::commit(const std::string& message) {
         std::string SHA1 = line.substr(7, 40);
         std::string path = line.substr(48);
         std::filesystem::path filePath = path;
-        pathToTreeEntryMap[filePath.parent_path().string()].emplace_back(filePath.filename().string(), mode, SHA1);
+        pathToTreeEntryMap[filePath.parent_path().string()].emplace_back(
+            filePath.filename().string(), mode, SHA1);
         std::filesystem::path anc = filePath.parent_path().parent_path();
         while (!anc.empty()) {
             pathToTreeEntryMap[anc.string()];
@@ -127,20 +135,22 @@ void NotGitRepository::commit(const std::string& message) {
         throw std::runtime_error("nothing to commit (no files staged)");
 
     std::vector<std::string> dirNames;
-    for (const auto& [path, treeEntry]: pathToTreeEntryMap) dirNames.push_back(path);
+    for (const auto& [path, treeEntry] : pathToTreeEntryMap)
+        dirNames.push_back(path);
     std::sort(dirNames.begin(), dirNames.end(), customCmp);
 
-    std::string rootSHA;    
+    std::string rootSHA;
 
     for (const std::string& name : dirNames) {
-        TreeObject tree (pathToTreeEntryMap[name]);
+        TreeObject tree(pathToTreeEntryMap[name]);
         std::string treeSha1 = store_.write(tree);
         std::filesystem::path path = name;
         std::filesystem::path parentPath = path.parent_path();
         if (name.empty()) {
             rootSHA = treeSha1;
-        } else{
-            pathToTreeEntryMap[parentPath.string()].emplace_back(path.filename().string(), Mode::TREE, treeSha1);
+        } else {
+            pathToTreeEntryMap[parentPath.string()].emplace_back(
+                path.filename().string(), Mode::TREE, treeSha1);
         }
     }
 
@@ -148,7 +158,7 @@ void NotGitRepository::commit(const std::string& message) {
     if (latestCommitSHA_.has_value()) {
         auto objPtr = store_.read(*latestCommitSHA_);
         CommitObject* obj = dynamic_cast<CommitObject*>(objPtr.get());
-        
+
         if (obj->treeSHA() == rootSHA) {
             status();
             return;
@@ -170,15 +180,19 @@ void NotGitRepository::commit(const std::string& message) {
     CommitObject commit(c);
     std::string commitSHA = store_.write(commit);
 
-    std::ofstream(ngitDirPath_ / "refs" / "heads" / currentBranch_) << commitSHA << "\n";
+    std::ofstream(ngitDirPath_ / "refs" / "heads" / currentBranch_)
+        << commitSHA << "\n";
     latestCommitSHA_ = commitSHA;
 
-    fmt::print(fg(fmt::color::green), "[{} {}] {}\n", currentBranch_, commitSHA.substr(0, 7), message);
+    fmt::print(fg(fmt::color::green), "[{} {}] {}\n", currentBranch_,
+               commitSHA.substr(0, 7), message);
 }
 
 void NotGitRepository::log(bool oneline) {
     if (!latestCommitSHA_.has_value())
-        throw std::runtime_error(std::format("fatal: your current branch '{}' does not have any commits yet", currentBranch_));
+        throw std::runtime_error(std::format(
+            "fatal: your current branch '{}' does not have any commits yet",
+            currentBranch_));
 
     std::string output;
     std::optional<std::string> sha = latestCommitSHA_;
@@ -189,19 +203,25 @@ void NotGitRepository::log(bool oneline) {
         if (!commit) break;
 
         if (oneline) {
-            output += fmt::format(fg(fmt::color::yellow), "{}", sha->substr(0, 7));
-            output += std::format(" {}\n", commit->commitMsg().substr(0, commit->commitMsg().find('\n')));
+            output +=
+                fmt::format(fg(fmt::color::yellow), "{}", sha->substr(0, 7));
+            output += std::format(
+                " {}\n",
+                commit->commitMsg().substr(0, commit->commitMsg().find('\n')));
         } else {
-            // Parse "Name <email> <unix_ts> <tz>" — last two tokens are timestamp and timezone
+            // Parse "Name <email> <unix_ts> <tz>" — last two tokens are
+            // timestamp and timezone
             const std::string& authorStr = commit->author();
             size_t lastSpace = authorStr.rfind(' ');
             std::string timezone = authorStr.substr(lastSpace + 1);
             size_t secondLastSpace = authorStr.rfind(' ', lastSpace - 1);
             std::string identity = authorStr.substr(0, secondLastSpace);
-            std::time_t ts = std::stol(authorStr.substr(secondLastSpace + 1, lastSpace - secondLastSpace - 1));
-    
+            std::time_t ts = std::stol(authorStr.substr(
+                secondLastSpace + 1, lastSpace - secondLastSpace - 1));
+
             char dateBuf[64];
-            std::strftime(dateBuf, sizeof(dateBuf), "%a %b %e %H:%M:%S %Y", std::localtime(&ts));
+            std::strftime(dateBuf, sizeof(dateBuf), "%a %b %e %H:%M:%S %Y",
+                          std::localtime(&ts));
             output += fmt::format(fg(fmt::color::yellow), "commit {}\n", *sha);
             output += std::format("Author: {}\n", identity);
             output += std::format("Date:   {} {}\n\n", dateBuf, timezone);
@@ -248,7 +268,8 @@ void NotGitRepository::status() {
             auto treeObj = store_.read(sha);
             auto* tree = dynamic_cast<TreeObject*>(treeObj.get());
             for (const auto& entry : tree->entries()) {
-                std::string fullPath = prefix.empty() ? entry.name : prefix + "/" + entry.name;
+                std::string fullPath =
+                    prefix.empty() ? entry.name : prefix + "/" + entry.name;
                 if (entry.mode == Mode::TREE)
                     treeStack.push_back({entry.SHA1, fullPath});
                 else
@@ -267,12 +288,14 @@ void NotGitRepository::status() {
         auto p = stack.back();
         stack.pop_back();
         if (std::filesystem::is_regular_file(p)) {
-            std::string rel = std::filesystem::relative(p, workingDirPath_).string();
+            std::string rel =
+                std::filesystem::relative(p, workingDirPath_).string();
             if (!currentStateMap.contains(rel)) {
                 untracked.push_back(rel);
             } else {
                 std::ifstream file(p, std::ios::binary);
-                std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                std::string data((std::istreambuf_iterator<char>(file)),
+                                 std::istreambuf_iterator<char>());
                 if (BlobObject(data).sha1() != currentStateMap[rel])
                     unstaged.push_back({"modified", rel});
             }
@@ -307,7 +330,8 @@ void NotGitRepository::status() {
 
     if (!staged.empty()) {
         fmt::print("Changes to be committed:\n");
-        fmt::print(fg(fmt::color::gray), "  (use \"ngit restore --staged <file>...\" to unstage)\n");
+        fmt::print(fg(fmt::color::gray),
+                   "  (use \"ngit restore --staged <file>...\" to unstage)\n");
         for (const auto& [label, path] : staged)
             fmt::print(fg(fmt::color::green), "\t{:10}{}\n", label + ":", path);
         fmt::print("\n");
@@ -315,7 +339,9 @@ void NotGitRepository::status() {
 
     if (!unstaged.empty()) {
         fmt::print("Changes not staged for commit:\n");
-        fmt::print(fg(fmt::color::gray), "  (use \"ngit add <file>...\" to update what will be committed)\n");
+        fmt::print(fg(fmt::color::gray),
+                   "  (use \"ngit add <file>...\" to update what will be "
+                   "committed)\n");
         for (const auto& [label, path] : unstaged)
             fmt::print(fg(fmt::color::red), "\t{:10}{}\n", label + ":", path);
         fmt::print("\n");
@@ -323,7 +349,9 @@ void NotGitRepository::status() {
 
     if (!untracked.empty()) {
         fmt::print("Untracked files:\n");
-        fmt::print(fg(fmt::color::gray), "  (use \"ngit add <file>...\" to include in what will be committed)\n");
+        fmt::print(fg(fmt::color::gray),
+                   "  (use \"ngit add <file>...\" to include in what will be "
+                   "committed)\n");
         for (const auto& path : untracked)
             fmt::print(fg(fmt::color::red), "\t{}\n", path);
         fmt::print("\n");
@@ -333,8 +361,8 @@ void NotGitRepository::status() {
         fmt::print("nothing to commit, working tree clean\n");
 }
 
-void NotGitRepository::restore(std::vector<std::filesystem::path> paths, bool staged) {
-
+void NotGitRepository::restore(std::vector<std::filesystem::path> paths,
+                               bool staged) {
     // load existing index into map (path -> "mode sha1")
     std::unordered_map<std::string, std::string> indexMap;
     std::ifstream indexIn(ngitDirPath_ / "index");
@@ -358,7 +386,8 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths, bool st
             auto treeObj = store_.read(sha);
             auto* tree = dynamic_cast<TreeObject*>(treeObj.get());
             for (const auto& entry : tree->entries()) {
-                std::string fullPath = prefix.empty() ? entry.name : prefix + "/" + entry.name;
+                std::string fullPath =
+                    prefix.empty() ? entry.name : prefix + "/" + entry.name;
                 if (entry.mode == Mode::TREE)
                     treeStack.push_back({entry.SHA1, fullPath});
                 else
@@ -371,7 +400,8 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths, bool st
         auto path = paths.back();
         paths.pop_back();
         if (std::filesystem::is_regular_file(path)) {
-            std::string rel = std::filesystem::relative(path, workingDirPath_).string();
+            std::string rel =
+                std::filesystem::relative(path, workingDirPath_).string();
             if (staged) {
                 if (!lastCommitStateMap.contains(rel))
                     indexMap.erase(rel);  // new file: remove from index
@@ -381,7 +411,10 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths, bool st
                 }
             } else {
                 if (!indexMap.contains(rel))
-                    throw std::runtime_error(std::format("error: pathspec '{}' did not match any file(s) known to ngit", rel));
+                    throw std::runtime_error(
+                        std::format("error: pathspec '{}' did not match any "
+                                    "file(s) known to ngit",
+                                    rel));
                 // restore working directory file from index
                 std::string sha = indexMap[rel].substr(7, 40);
                 auto obj = store_.read(sha);
@@ -390,7 +423,8 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths, bool st
                 out << blob->rawData();
             }
         } else if (std::filesystem::is_directory(path)) {
-            for (const auto& entry : std::filesystem::directory_iterator(path)) {
+            for (const auto& entry :
+                 std::filesystem::directory_iterator(path)) {
                 if (entry.path().filename() == ".ngit") continue;
                 paths.push_back(entry);
             }
@@ -404,7 +438,8 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths, bool st
     }
 }
 
-void NotGitRepository::rm(std::vector<std::filesystem::path> paths, bool cached) {
+void NotGitRepository::rm(std::vector<std::filesystem::path> paths,
+                          bool cached) {
     std::unordered_map<std::string, std::string> indexMap;
     std::ifstream indexIn(ngitDirPath_ / "index");
     std::string line;
@@ -418,19 +453,25 @@ void NotGitRepository::rm(std::vector<std::filesystem::path> paths, bool cached)
         auto path = paths.back();
         paths.pop_back();
         if (std::filesystem::is_regular_file(path)) {
-            std::string rel = std::filesystem::relative(path, workingDirPath_).string();
+            std::string rel =
+                std::filesystem::relative(path, workingDirPath_).string();
             if (!indexMap.contains(rel))
-                throw std::runtime_error(std::format("error: pathspec '{}' did not match any file(s) known to ngit", rel));
+                throw std::runtime_error(
+                    std::format("error: pathspec '{}' did not match any "
+                                "file(s) known to ngit",
+                                rel));
             indexMap.erase(rel);
-            if (!cached)
-                std::filesystem::remove(path);
+            if (!cached) std::filesystem::remove(path);
         } else if (std::filesystem::is_directory(path)) {
-            for (const auto& entry : std::filesystem::directory_iterator(path)) {
+            for (const auto& entry :
+                 std::filesystem::directory_iterator(path)) {
                 if (entry.path().filename() == ".ngit") continue;
                 paths.push_back(entry);
             }
         } else {
-            throw std::runtime_error(std::format("error: pathspec '{}' did not match any file(s) known to ngit", path.string()));
+            throw std::runtime_error(std::format(
+                "error: pathspec '{}' did not match any file(s) known to ngit",
+                path.string()));
         }
     }
 
@@ -439,24 +480,28 @@ void NotGitRepository::rm(std::vector<std::filesystem::path> paths, bool cached)
         indexOut << modeAndSha << " " << filePath << "\n";
 }
 
-void NotGitRepository::init (const std::filesystem::path& path) {
+void NotGitRepository::init(const std::filesystem::path& path) {
     /*
         1. If .ngit/ folder does not exist, then init command should:
-            - Create a .ngit folder with 
+            - Create a .ngit folder with
                 - objects/
                 - refs/heads/
                 - refs/tags/
                 - HEAD
                 - config
                 - description
-        2. If .ngit/ folder already exists, then do not touch anything and return a Valid message
+        2. If .ngit/ folder already exists, then do not touch anything and
+       return a Valid message
     */
     std::filesystem::path absolutePath = std::filesystem::absolute(path);
 
-    std::optional<std::filesystem::path> f = getNgitRepoWorkingDirectory(absolutePath);
-    if (f.has_value()) {// if ngit repo already exists then just exit
+    std::optional<std::filesystem::path> f =
+        getNgitRepoWorkingDirectory(absolutePath);
+    if (f.has_value()) {  // if ngit repo already exists then just exit
         const std::filesystem::path ngitPath = f.value() / ".ngit";
-        fmt::print(fmt::emphasis::bold | fg(fmt::color::yellow), "NotGit repository already exists at {} !\n", fmt::styled(ngitPath.string(), fmt::emphasis::underline));
+        fmt::print(fmt::emphasis::bold | fg(fmt::color::yellow),
+                   "NotGit repository already exists at {} !\n",
+                   fmt::styled(ngitPath.string(), fmt::emphasis::underline));
         return;
     }
 
@@ -467,7 +512,9 @@ void NotGitRepository::init (const std::filesystem::path& path) {
     // Create the files
     create_default_files(ngitPath);
 
-    fmt::print(fmt::emphasis::bold | fg(fmt::color::green), "Initialised empty NotGit repository in {}\n", fmt::styled(ngitPath.string(), fmt::emphasis::underline));
+    fmt::print(fmt::emphasis::bold | fg(fmt::color::green),
+               "Initialised empty NotGit repository in {}\n",
+               fmt::styled(ngitPath.string(), fmt::emphasis::underline));
 }
 
 static void create_default_dirs(const std::filesystem::path& ngitPath) {
@@ -477,13 +524,14 @@ static void create_default_dirs(const std::filesystem::path& ngitPath) {
 }
 
 static void create_default_files(const std::filesystem::path& ngitPath) {
-    std::ofstream(ngitPath / "description") << "Unnamed repository; edit this file 'description' to name the repository.\n";
+    std::ofstream(ngitPath / "description")
+        << "Unnamed repository; edit this file 'description' to name the "
+           "repository.\n";
     std::ofstream(ngitPath / "HEAD") << "ref: refs/heads/main\n";
-    std::ofstream(ngitPath / "config")
-        << "[core]\n"
-        << "\trepositoryformatversion = 0\n"
-        << "\tfilemode = true\n"
-        << "\tbare = false\n";
+    std::ofstream(ngitPath / "config") << "[core]\n"
+                                       << "\trepositoryformatversion = 0\n"
+                                       << "\tfilemode = true\n"
+                                       << "\tbare = false\n";
 }
 
 // Checks if .ngit folder has any missing files or subdirectories
@@ -497,7 +545,8 @@ static bool isCorrupted(const std::filesystem::path& ngitPath) {
 
 // Checks for .ngit folder recursively in parent directory to determine
 // if ngit repo already exists and returns working directory
-std::optional<std::filesystem::path> getNgitRepoWorkingDirectory(const std::filesystem::path& path) {
+std::optional<std::filesystem::path> getNgitRepoWorkingDirectory(
+    const std::filesystem::path& path) {
     std::filesystem::path curr = path;
     while (curr != curr.parent_path()) {
         if (std::filesystem::exists(curr / ".ngit")) {
@@ -510,18 +559,22 @@ std::optional<std::filesystem::path> getNgitRepoWorkingDirectory(const std::file
 
 static std::string readAuthor(const std::filesystem::path&) {
     const char* home = std::getenv("HOME");
-    if (!home)
-        throw std::runtime_error("HOME environment variable not set");
+    if (!home) throw std::runtime_error("HOME environment variable not set");
 
     std::ifstream f(std::filesystem::path(home) / ".gitconfig");
-    if (!f)
-        throw std::runtime_error("~/.gitconfig not found");
+    if (!f) throw std::runtime_error("~/.gitconfig not found");
 
     std::string line, name, email;
     bool inUser = false;
     while (std::getline(f, line)) {
-        if (line == "[user]") { inUser = true; continue; }
-        if (line.starts_with("[")) { inUser = false; continue; }
+        if (line == "[user]") {
+            inUser = true;
+            continue;
+        }
+        if (line.starts_with("[")) {
+            inUser = false;
+            continue;
+        }
         if (!inUser) continue;
         size_t eq = line.find('=');
         if (eq == std::string::npos) continue;
@@ -531,8 +584,10 @@ static std::string readAuthor(const std::filesystem::path&) {
         key.erase(key.find_last_not_of(" \t") + 1);
         val.erase(0, val.find_first_not_of(" \t"));
         val.erase(val.find_last_not_of(" \t") + 1);
-        if (key == "name") name = val;
-        else if (key == "email") email = val;
+        if (key == "name")
+            name = val;
+        else if (key == "email")
+            email = val;
     }
     if (name.empty())
         throw std::runtime_error("user.name not set in ~/.gitconfig");
@@ -540,8 +595,8 @@ static std::string readAuthor(const std::filesystem::path&) {
 }
 
 static bool customCmp(const std::string& a, const std::string& b) {
-   auto depth = [](const std::string& p) {
-            return p.empty() ? 0 : (int)std::count(p.begin(), p.end(), '/') + 1;
-        };
-    return depth(a) > depth(b); 
+    auto depth = [](const std::string& p) {
+        return p.empty() ? 0 : (int)std::count(p.begin(), p.end(), '/') + 1;
+    };
+    return depth(a) > depth(b);
 }

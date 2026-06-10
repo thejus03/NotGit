@@ -1,14 +1,16 @@
 #pragma once
-#include "ObjectStore/ObjectStore.hpp"
 #include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
 
-std::optional<std::filesystem::path> getNgitRepoWorkingDirectory(const std::filesystem::path& path);
+#include "ObjectStore/ObjectStore.hpp"
+
+std::optional<std::filesystem::path> getNgitRepoWorkingDirectory(
+    const std::filesystem::path& path);
 
 class NotGitRepository {
-public: 
+  public:
     explicit NotGitRepository(const std::filesystem::path& workingDirPath);
 
     void add(std::vector<std::filesystem::path> paths);
@@ -24,8 +26,8 @@ public:
     void rm(std::vector<std::filesystem::path> paths, bool cached);
 
     static void init(const std::filesystem::path& path);
-     
-private:
+
+  private:
     const std::filesystem::path workingDirPath_;
     const std::filesystem::path ngitDirPath_;
     ObjectStore store_;
