@@ -429,6 +429,8 @@ void NotGitRepository::rm(std::vector<std::filesystem::path> paths, bool cached)
                 if (entry.path().filename() == ".ngit") continue;
                 paths.push_back(entry);
             }
+        } else {
+            throw std::runtime_error(std::format("error: pathspec '{}' did not match any file(s) known to ngit", path.string()));
         }
     }
 

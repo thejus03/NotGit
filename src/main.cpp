@@ -73,8 +73,6 @@ int main(int argc, char** argv) {
                 std::cout << "checkout command called!" << std::endl;
             } else if (app.got_subcommand("merge")) {
                 std::cout << "merge command called!" << std::endl;
-            } else if (app.got_subcommand("rm")) {
-                std::cout << "rm command called!" << std::endl;
             } else if (app.got_subcommand("log")) {
                 ngitRepo.log(oneline);
             } else if (app.got_subcommand("diff")) {
