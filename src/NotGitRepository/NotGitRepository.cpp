@@ -1,8 +1,6 @@
 
 #include "NotGitRepository/NotGitRepository.hpp"
 
-#include "constants.hpp"
-
 #include <fmt/color.h>
 
 #include <algorithm>
@@ -21,12 +19,13 @@
 #include "Objects/BlobObject.hpp"
 #include "Objects/CommitObject.hpp"
 #include "Objects/TreeObject.hpp"
+#include "constants.hpp"
 
 static void create_default_files(const std::filesystem::path& ngitPath);
 static void create_default_dirs(const std::filesystem::path& ngitPath);
 static bool isCorrupted(const std::filesystem::path& ngitPath);
 static std::string readAuthor();
-static bool customCmp(const std::string& a, const std::string& b);
+static bool customPathCmp(const std::string& a, const std::string& b);
 
 NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath)
     : workingDirPath_(workingDirPath),
@@ -73,14 +72,14 @@ void NotGitRepository::writeIndex(const IndexMap& index) const {
     std::vector<std::string> paths;
     paths.reserve(index.size());
     for (const auto& [p, _] : index) paths.push_back(p);
-    std::sort(paths.begin(), paths.end(), customCmp);
+    std::sort(paths.begin(), paths.end(), customPathCmp);
 
     std::ofstream out(ngitDirPath_ / "index");
-    for (const auto& p : paths)
-        out << index.at(p) << " " << p << "\n";
+    for (const auto& p : paths) out << index.at(p) << " " << p << "\n";
 }
 
-std::unordered_map<std::string, TreeEntry> NotGitRepository::flattenHeadTree() const {
+std::unordered_map<std::string, TreeEntry> NotGitRepository::flattenHeadTree()
+    const {
     std::unordered_map<std::string, TreeEntry> result;
     if (!latestCommitSHA_.has_value()) return result;
 
@@ -147,7 +146,8 @@ void NotGitRepository::commit(const std::string& message) {
     std::unordered_map<std::string, std::vector<TreeEntry>> pathToTreeEntryMap;
     for (const auto& [path, modeAndSha] : loadIndex()) {
         std::string mode = modeAndSha.substr(0, 6);
-        std::string SHA1 = modeAndSha.substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len);
+        std::string SHA1 = modeAndSha.substr(constants::kIndexSHA1Start,
+                                             constants::kIndexSHA1Len);
         std::filesystem::path filePath = path;
         pathToTreeEntryMap[filePath.parent_path().string()].emplace_back(
             filePath.filename().string(), mode, SHA1);
@@ -165,7 +165,7 @@ void NotGitRepository::commit(const std::string& message) {
     std::vector<std::string> dirNames;
     for (const auto& [path, treeEntry] : pathToTreeEntryMap)
         dirNames.push_back(path);
-    std::sort(dirNames.begin(), dirNames.end(), customCmp);
+    std::sort(dirNames.begin(), dirNames.end(), customPathCmp);
 
     std::string rootSHA;
 
@@ -294,7 +294,9 @@ void NotGitRepository::status() {
                 std::ifstream file(p, std::ios::binary);
                 std::string data((std::istreambuf_iterator<char>(file)),
                                  std::istreambuf_iterator<char>());
-                if (BlobObject(data).sha1() != currentStateMap[rel].substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len))
+                if (BlobObject(data).sha1() !=
+                    currentStateMap[rel].substr(constants::kIndexSHA1Start,
+                                                constants::kIndexSHA1Len))
                     unstaged.push_back({"modified", rel});
             }
         } else if (std::filesystem::is_directory(p)) {
@@ -315,7 +317,9 @@ void NotGitRepository::status() {
     for (const auto& [path, sha] : currentStateMap) {
         if (!lastCommitStateMap.contains(path))
             staged.push_back({"new file", path});
-        else if (lastCommitStateMap[path].SHA1 != sha.substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len))
+        else if (lastCommitStateMap[path].SHA1 !=
+                 sha.substr(constants::kIndexSHA1Start,
+                            constants::kIndexSHA1Len))
             staged.push_back({"modified", path});
     }
     // Staged deleted: in HEAD but removed from index
@@ -384,7 +388,8 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths,
                                     "file(s) known to ngit",
                                     rel));
                 // restore working directory file from index
-                std::string sha = indexMap[rel].substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len);
+                std::string sha = indexMap[rel].substr(
+                    constants::kIndexSHA1Start, constants::kIndexSHA1Len);
                 auto obj = store_.read(sha);
                 auto* blob = dynamic_cast<BlobObject*>(obj.get());
                 std::ofstream out(path, std::ios::binary);
@@ -549,7 +554,7 @@ static std::string readAuthor() {
     return email.empty() ? name : name + " <" + email + ">";
 }
 
-static bool customCmp(const std::string& a, const std::string& b) {
+static bool customPathCmp(const std::string& a, const std::string& b) {
     auto depth = [](const std::string& p) {
         return p.empty() ? 0 : (int)std::count(p.begin(), p.end(), '/') + 1;
     };
