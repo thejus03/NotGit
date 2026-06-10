@@ -13,6 +13,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "Objects/BaseObject.hpp"
@@ -24,8 +25,10 @@
 static void create_default_files(const std::filesystem::path& ngitPath);
 static void create_default_dirs(const std::filesystem::path& ngitPath);
 static bool isCorrupted(const std::filesystem::path& ngitPath);
-static std::string readAuthor();
 static bool customPathCmp(const std::string& a, const std::string& b);
+static std::string readAuthor();
+static std::unordered_set<std::string> getTrackedDirs(
+    const NotGitRepository::IndexMap& indexMap);
 
 NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath)
     : workingDirPath_(workingDirPath),
@@ -275,6 +278,7 @@ void NotGitRepository::log(bool oneline) {
 void NotGitRepository::status() {
     auto currentStateMap = loadIndex();
     auto lastCommitStateMap = flattenHeadTree();
+    auto trackedDir = getTrackedDirs(currentStateMap);
 
     // {label, path} buckets
     std::vector<std::pair<std::string, std::string>> staged;
@@ -300,9 +304,15 @@ void NotGitRepository::status() {
                     unstaged.push_back({"modified", rel});
             }
         } else if (std::filesystem::is_directory(p)) {
-            for (const auto& entry : std::filesystem::directory_iterator(p)) {
-                if (entry.path().filename() == ".ngit") continue;
-                stack.push_back(entry);
+            std::string relPath = std::filesystem::relative(p, workingDirPath_);
+            if (relPath != "." && !trackedDir.contains(relPath)) {
+                untracked.push_back(std::format("{}/", relPath));
+            } else {
+                for (const auto& entry :
+                     std::filesystem::directory_iterator(p)) {
+                    if (entry.path().filename() == ".ngit") continue;
+                    stack.push_back(entry);
+                }
             }
         }
     }
@@ -559,4 +569,18 @@ static bool customPathCmp(const std::string& a, const std::string& b) {
         return p.empty() ? 0 : (int)std::count(p.begin(), p.end(), '/') + 1;
     };
     return depth(a) > depth(b);
+}
+
+static std::unordered_set<std::string> getTrackedDirs(
+    const NotGitRepository::IndexMap& indexMap) {
+    std::unordered_set<std::string> trackedDirs;
+    for (const auto& [path, _] : indexMap) {
+        std::filesystem::path p = path;
+        p = p.parent_path();
+        while (!p.empty() && p != ".") {
+            trackedDirs.insert(p.string());
+            p = p.parent_path();
+        }
+    }
+    return trackedDirs;
 }

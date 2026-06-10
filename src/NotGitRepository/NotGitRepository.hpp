@@ -13,6 +13,8 @@ std::optional<std::filesystem::path> getNgitRepoWorkingDirectory(
 
 class NotGitRepository {
   public:
+    using IndexMap = typename std::unordered_map<std::string, std::string>;
+
     explicit NotGitRepository(const std::filesystem::path& workingDirPath);
 
     void add(std::vector<std::filesystem::path> paths);
@@ -37,8 +39,6 @@ class NotGitRepository {
     std::string currentBranch_;
     std::optional<std::string> latestCommitSHA_;
     bool isDetached_;
-
-    using IndexMap = typename std::unordered_map<std::string, std::string>;
 
     IndexMap loadIndex() const;
     void writeIndex(const IndexMap& index) const;
