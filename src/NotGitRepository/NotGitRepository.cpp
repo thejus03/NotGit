@@ -25,7 +25,7 @@
 static void create_default_files(const std::filesystem::path& ngitPath);
 static void create_default_dirs(const std::filesystem::path& ngitPath);
 static bool isCorrupted(const std::filesystem::path& ngitPath);
-static std::string readAuthor(const std::filesystem::path& ngitDirPath);
+static std::string readAuthor();
 static bool customCmp(const std::string& a, const std::string& b);
 
 NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath)
@@ -57,17 +57,58 @@ NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath)
     }
 }
 
+NotGitRepository::IndexMap NotGitRepository::loadIndex() const {
+    IndexMap result;
+    std::ifstream in(ngitDirPath_ / "index");
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.size() < constants::kIndexPathStart) continue;
+        result[line.substr(constants::kIndexPathStart)] =
+            line.substr(0, constants::kIndexPathStart - 1);
+    }
+    return result;
+}
+
+void NotGitRepository::writeIndex(const IndexMap& index) const {
+    std::vector<std::string> paths;
+    paths.reserve(index.size());
+    for (const auto& [p, _] : index) paths.push_back(p);
+    std::sort(paths.begin(), paths.end(), customCmp);
+
+    std::ofstream out(ngitDirPath_ / "index");
+    for (const auto& p : paths)
+        out << index.at(p) << " " << p << "\n";
+}
+
+std::unordered_map<std::string, TreeEntry> NotGitRepository::flattenHeadTree() const {
+    std::unordered_map<std::string, TreeEntry> result;
+    if (!latestCommitSHA_.has_value()) return result;
+
+    auto commitObj = store_.read(*latestCommitSHA_);
+    auto* commit = dynamic_cast<CommitObject*>(commitObj.get());
+
+    std::vector<std::pair<std::string, std::string>> stack;
+    stack.push_back({commit->treeSHA(), ""});
+    while (!stack.empty()) {
+        auto [sha, prefix] = stack.back();
+        stack.pop_back();
+        auto treeObj = store_.read(sha);
+        auto* tree = dynamic_cast<TreeObject*>(treeObj.get());
+        for (const auto& entry : tree->entries()) {
+            std::string fullPath =
+                prefix.empty() ? entry.name : prefix + "/" + entry.name;
+            if (entry.mode == Mode::TREE)
+                stack.push_back({entry.SHA1, fullPath});
+            else
+                result[fullPath] = entry;
+        }
+    }
+    return result;
+}
+
 // Implements `ngit add [file]` command
 void NotGitRepository::add(std::vector<std::filesystem::path> paths) {
-    // load existing index into map (path -> "mode sha1")
-    std::unordered_map<std::string, std::string> indexMap;
-    std::ifstream indexIn(ngitDirPath_ / "index");
-    std::string line;
-    while (std::getline(indexIn, line)) {
-        if (line.size() < constants::kIndexPathStart) continue;
-        indexMap[line.substr(constants::kIndexPathStart)] = line.substr(0, constants::kIndexPathStart - 1);  // "mode sha1"
-    }
-    indexIn.close();
+    auto indexMap = loadIndex();
 
     while (!paths.empty()) {
         std::filesystem::path p = paths.back();
@@ -98,29 +139,15 @@ void NotGitRepository::add(std::vector<std::filesystem::path> paths) {
         }
     }
 
-    // write index back
-    std::vector<std::string> filePaths;
-    for (const auto& [filePath, modeAndSha] : indexMap)
-        filePaths.push_back(filePath);
-    std::sort(filePaths.begin(), filePaths.end(), customCmp);
-
-    std::ofstream indexOut(ngitDirPath_ / "index");
-    for (const std::string& filePath : filePaths) {
-        const std::string& modeAndSha = indexMap[filePath];
-        indexOut << modeAndSha << " " << filePath << "\n";
-    }
+    writeIndex(indexMap);
 }
 
 // Implements `ngit commit` command
 void NotGitRepository::commit(const std::string& message) {
     std::unordered_map<std::string, std::vector<TreeEntry>> pathToTreeEntryMap;
-    std::ifstream indexIn(ngitDirPath_ / "index");
-    std::string line;
-    while (std::getline(indexIn, line)) {
-        if (line.size() < constants::kIndexPathStart) continue;
-        std::string mode = line.substr(0, 6);
-        std::string SHA1 = line.substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len);
-        std::string path = line.substr(constants::kIndexPathStart);
+    for (const auto& [path, modeAndSha] : loadIndex()) {
+        std::string mode = modeAndSha.substr(0, 6);
+        std::string SHA1 = modeAndSha.substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len);
         std::filesystem::path filePath = path;
         pathToTreeEntryMap[filePath.parent_path().string()].emplace_back(
             filePath.filename().string(), mode, SHA1);
@@ -131,7 +158,6 @@ void NotGitRepository::commit(const std::string& message) {
         }
         pathToTreeEntryMap[""];
     }
-    indexIn.close();
 
     if (pathToTreeEntryMap.empty())
         throw std::runtime_error("nothing to commit (no files staged)");
@@ -171,7 +197,7 @@ void NotGitRepository::commit(const std::string& message) {
     c.commitMsg = message;
     c.treeSHA = rootSHA;
     c.parentCommitSHA = latestCommitSHA_;
-    std::string author = readAuthor(ngitDirPath_);
+    std::string author = readAuthor();
     std::time_t now = std::time(nullptr);
     char tz[6];
     std::strftime(tz, sizeof(tz), "%z", std::localtime(&now));
@@ -247,38 +273,8 @@ void NotGitRepository::log(bool oneline) {
 }
 
 void NotGitRepository::status() {
-    // load current state of each file
-    std::unordered_map<std::string, std::string> currentStateMap;
-    std::ifstream indexIn(ngitDirPath_ / "index");
-    std::string line;
-    while (std::getline(indexIn, line)) {
-        if (line.size() < constants::kIndexPathStart) continue;
-        currentStateMap[line.substr(constants::kIndexPathStart)] = line.substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len);
-    }
-    indexIn.close();
-
-    // load last commit state of each file
-    std::unordered_map<std::string, std::string> lastCommitStateMap;
-    if (latestCommitSHA_.has_value()) {
-        auto commitObj = store_.read(*latestCommitSHA_);
-        auto* commit = dynamic_cast<CommitObject*>(commitObj.get());
-        std::vector<std::pair<std::string, std::string>> treeStack;
-        treeStack.push_back({commit->treeSHA(), ""});
-        while (!treeStack.empty()) {
-            auto [sha, prefix] = treeStack.back();
-            treeStack.pop_back();
-            auto treeObj = store_.read(sha);
-            auto* tree = dynamic_cast<TreeObject*>(treeObj.get());
-            for (const auto& entry : tree->entries()) {
-                std::string fullPath =
-                    prefix.empty() ? entry.name : prefix + "/" + entry.name;
-                if (entry.mode == Mode::TREE)
-                    treeStack.push_back({entry.SHA1, fullPath});
-                else
-                    lastCommitStateMap[fullPath] = entry.SHA1;
-            }
-        }
-    }
+    auto currentStateMap = loadIndex();
+    auto lastCommitStateMap = flattenHeadTree();
 
     // {label, path} buckets
     std::vector<std::pair<std::string, std::string>> staged;
@@ -298,7 +294,7 @@ void NotGitRepository::status() {
                 std::ifstream file(p, std::ios::binary);
                 std::string data((std::istreambuf_iterator<char>(file)),
                                  std::istreambuf_iterator<char>());
-                if (BlobObject(data).sha1() != currentStateMap[rel])
+                if (BlobObject(data).sha1() != currentStateMap[rel].substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len))
                     unstaged.push_back({"modified", rel});
             }
         } else if (std::filesystem::is_directory(p)) {
@@ -319,11 +315,11 @@ void NotGitRepository::status() {
     for (const auto& [path, sha] : currentStateMap) {
         if (!lastCommitStateMap.contains(path))
             staged.push_back({"new file", path});
-        else if (lastCommitStateMap[path] != sha)
+        else if (lastCommitStateMap[path].SHA1 != sha.substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len))
             staged.push_back({"modified", path});
     }
     // Staged deleted: in HEAD but removed from index
-    for (const auto& [path, sha1] : lastCommitStateMap) {
+    for (const auto& [path, entry] : lastCommitStateMap) {
         if (!currentStateMap.contains(path))
             staged.push_back({"deleted", path});
     }
@@ -365,38 +361,8 @@ void NotGitRepository::status() {
 
 void NotGitRepository::restore(std::vector<std::filesystem::path> paths,
                                bool staged) {
-    // load existing index into map (path -> "mode sha1")
-    std::unordered_map<std::string, std::string> indexMap;
-    std::ifstream indexIn(ngitDirPath_ / "index");
-    std::string line;
-    while (std::getline(indexIn, line)) {
-        if (line.size() < constants::kIndexPathStart) continue;
-        indexMap[line.substr(constants::kIndexPathStart)] = line.substr(0, constants::kIndexPathStart - 1);
-    }
-    indexIn.close();
-
-    // load last commit state of each file (path -> TreeEntry)
-    std::unordered_map<std::string, TreeEntry> lastCommitStateMap;
-    if (latestCommitSHA_.has_value()) {
-        auto commitObj = store_.read(*latestCommitSHA_);
-        auto* commit = dynamic_cast<CommitObject*>(commitObj.get());
-        std::vector<std::pair<std::string, std::string>> treeStack;
-        treeStack.push_back({commit->treeSHA(), ""});
-        while (!treeStack.empty()) {
-            auto [sha, prefix] = treeStack.back();
-            treeStack.pop_back();
-            auto treeObj = store_.read(sha);
-            auto* tree = dynamic_cast<TreeObject*>(treeObj.get());
-            for (const auto& entry : tree->entries()) {
-                std::string fullPath =
-                    prefix.empty() ? entry.name : prefix + "/" + entry.name;
-                if (entry.mode == Mode::TREE)
-                    treeStack.push_back({entry.SHA1, fullPath});
-                else
-                    lastCommitStateMap[fullPath] = entry;
-            }
-        }
-    }
+    auto indexMap = loadIndex();
+    auto lastCommitStateMap = flattenHeadTree();
 
     while (!paths.empty()) {
         auto path = paths.back();
@@ -433,23 +399,12 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths,
         }
     }
 
-    if (staged) {
-        std::ofstream indexOut(ngitDirPath_ / "index");
-        for (const auto& [filePath, modeAndSha] : indexMap)
-            indexOut << modeAndSha << " " << filePath << "\n";
-    }
+    if (staged) writeIndex(indexMap);
 }
 
 void NotGitRepository::rm(std::vector<std::filesystem::path> paths,
                           bool cached) {
-    std::unordered_map<std::string, std::string> indexMap;
-    std::ifstream indexIn(ngitDirPath_ / "index");
-    std::string line;
-    while (std::getline(indexIn, line)) {
-        if (line.size() < constants::kIndexPathStart) continue;
-        indexMap[line.substr(constants::kIndexPathStart)] = line.substr(0, constants::kIndexPathStart - 1);
-    }
-    indexIn.close();
+    auto indexMap = loadIndex();
 
     while (!paths.empty()) {
         auto path = paths.back();
@@ -477,9 +432,7 @@ void NotGitRepository::rm(std::vector<std::filesystem::path> paths,
         }
     }
 
-    std::ofstream indexOut(ngitDirPath_ / "index");
-    for (const auto& [filePath, modeAndSha] : indexMap)
-        indexOut << modeAndSha << " " << filePath << "\n";
+    writeIndex(indexMap);
 }
 
 void NotGitRepository::init(const std::filesystem::path& path) {
@@ -559,7 +512,7 @@ std::optional<std::filesystem::path> getNgitRepoWorkingDirectory(
     return std::nullopt;
 }
 
-static std::string readAuthor(const std::filesystem::path&) {
+static std::string readAuthor() {
     const char* home = std::getenv("HOME");
     if (!home) throw std::runtime_error("HOME environment variable not set");
 
