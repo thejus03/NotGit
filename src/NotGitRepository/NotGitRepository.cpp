@@ -404,6 +404,39 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths, bool st
     }
 }
 
+void NotGitRepository::rm(std::vector<std::filesystem::path> paths, bool cached) {
+    std::unordered_map<std::string, std::string> indexMap;
+    std::ifstream indexIn(ngitDirPath_ / "index");
+    std::string line;
+    while (std::getline(indexIn, line)) {
+        if (line.size() < 48) continue;
+        indexMap[line.substr(48)] = line.substr(0, 47);
+    }
+    indexIn.close();
+
+    while (!paths.empty()) {
+        auto path = paths.back();
+        paths.pop_back();
+        if (std::filesystem::is_regular_file(path)) {
+            std::string rel = std::filesystem::relative(path, workingDirPath_).string();
+            if (!indexMap.contains(rel))
+                throw std::runtime_error(std::format("error: pathspec '{}' did not match any file(s) known to ngit", rel));
+            indexMap.erase(rel);
+            if (!cached)
+                std::filesystem::remove(path);
+        } else if (std::filesystem::is_directory(path)) {
+            for (const auto& entry : std::filesystem::directory_iterator(path)) {
+                if (entry.path().filename() == ".ngit") continue;
+                paths.push_back(entry);
+            }
+        }
+    }
+
+    std::ofstream indexOut(ngitDirPath_ / "index");
+    for (const auto& [filePath, modeAndSha] : indexMap)
+        indexOut << modeAndSha << " " << filePath << "\n";
+}
+
 void NotGitRepository::init (const std::filesystem::path& path) {
     /*
         1. If .ngit/ folder does not exist, then init command should:

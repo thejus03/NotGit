@@ -21,6 +21,8 @@ public:
 
     void restore(std::vector<std::filesystem::path> paths, bool staged);
 
+    void rm(std::vector<std::filesystem::path> paths, bool cached);
+
     static void init(const std::filesystem::path& path);
      
 private:

@@ -26,7 +26,11 @@ int main(int argc, char** argv) {
     app.add_subcommand("status", "Show working tree status");
     app.add_subcommand("checkout", "Switch branched or restore working tree files");
     app.add_subcommand("merge", "Switch branched or restore working tree files");
-    app.add_subcommand("rm", "Switch branched or restore working tree files");
+    bool cached = false;
+    std::vector<std::filesystem::path> rmPaths;
+    auto rm = app.add_subcommand("rm", "Remove files from the index");
+    rm->add_flag("--cached", cached, "Remove from index only, keep file on disk");
+    rm->add_option("paths", rmPaths, "Files to remove")->required()->expected(1, -1);
     
     bool staged = false;
     std::vector<std::filesystem::path> restorePaths;
@@ -78,7 +82,7 @@ int main(int argc, char** argv) {
             } else if (app.got_subcommand("restore")) {
                 ngitRepo.restore(restorePaths, staged);
             } else if (app.got_subcommand("rm")) {
-                std::cout << "rm command called!" << std::endl;
+                ngitRepo.rm(rmPaths, cached);
             } else { // command does not exist
                 if (!app.remaining().empty())
                     fmt::print(fg(fmt::color::red), "ngit: '{}' is not a ngit command. Run 'ngit --help'.\n", app.remaining().at(0));
