@@ -26,6 +26,7 @@ int main(int argc, char** argv) {
     app.add_subcommand("status", "Show working tree status");
     app.add_subcommand("checkout", "Switch branched or restore working tree files");
     app.add_subcommand("merge", "Switch branched or restore working tree files");
+
     bool cached = false;
     std::vector<std::filesystem::path> rmPaths;
     auto rm = app.add_subcommand("rm", "Remove files from the index");
@@ -43,6 +44,10 @@ int main(int argc, char** argv) {
     log->add_flag("--oneline", oneline, "Show each commit as a single line");
 
     app.add_subcommand("diff", "Switch branched or restore working tree files");
+    app.add_subcommand("branch", "Switch branched or restore working tree files");
+    app.add_subcommand("reset", "Switch branched or restore working tree files");
+    app.add_subcommand("stash", "Switch branched or restore working tree files");
+    app.add_subcommand("rebase", "Switch branched or restore working tree files");
 
     // Allow random commands so that error not thrown by CLI11.
     // Will be caught in else branch for cleaner error message for user.
