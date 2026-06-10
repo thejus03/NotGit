@@ -1,6 +1,8 @@
 
 #include "NotGitRepository/NotGitRepository.hpp"
 
+#include "constants.hpp"
+
 #include <fmt/color.h>
 
 #include <algorithm>
@@ -62,8 +64,8 @@ void NotGitRepository::add(std::vector<std::filesystem::path> paths) {
     std::ifstream indexIn(ngitDirPath_ / "index");
     std::string line;
     while (std::getline(indexIn, line)) {
-        if (line.size() < 48) continue;
-        indexMap[line.substr(48)] = line.substr(0, 47);  // "mode sha1"
+        if (line.size() < constants::kIndexPathStart) continue;
+        indexMap[line.substr(constants::kIndexPathStart)] = line.substr(0, constants::kIndexPathStart - 1);  // "mode sha1"
     }
     indexIn.close();
 
@@ -115,10 +117,10 @@ void NotGitRepository::commit(const std::string& message) {
     std::ifstream indexIn(ngitDirPath_ / "index");
     std::string line;
     while (std::getline(indexIn, line)) {
-        if (line.size() < 48) continue;
+        if (line.size() < constants::kIndexPathStart) continue;
         std::string mode = line.substr(0, 6);
-        std::string SHA1 = line.substr(7, 40);
-        std::string path = line.substr(48);
+        std::string SHA1 = line.substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len);
+        std::string path = line.substr(constants::kIndexPathStart);
         std::filesystem::path filePath = path;
         pathToTreeEntryMap[filePath.parent_path().string()].emplace_back(
             filePath.filename().string(), mode, SHA1);
@@ -250,8 +252,8 @@ void NotGitRepository::status() {
     std::ifstream indexIn(ngitDirPath_ / "index");
     std::string line;
     while (std::getline(indexIn, line)) {
-        if (line.size() < 48) continue;
-        currentStateMap[line.substr(48)] = line.substr(7, 40);
+        if (line.size() < constants::kIndexPathStart) continue;
+        currentStateMap[line.substr(constants::kIndexPathStart)] = line.substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len);
     }
     indexIn.close();
 
@@ -368,8 +370,8 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths,
     std::ifstream indexIn(ngitDirPath_ / "index");
     std::string line;
     while (std::getline(indexIn, line)) {
-        if (line.size() < 48) continue;
-        indexMap[line.substr(48)] = line.substr(0, 47);
+        if (line.size() < constants::kIndexPathStart) continue;
+        indexMap[line.substr(constants::kIndexPathStart)] = line.substr(0, constants::kIndexPathStart - 1);
     }
     indexIn.close();
 
@@ -416,7 +418,7 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths,
                                     "file(s) known to ngit",
                                     rel));
                 // restore working directory file from index
-                std::string sha = indexMap[rel].substr(7, 40);
+                std::string sha = indexMap[rel].substr(constants::kIndexSHA1Start, constants::kIndexSHA1Len);
                 auto obj = store_.read(sha);
                 auto* blob = dynamic_cast<BlobObject*>(obj.get());
                 std::ofstream out(path, std::ios::binary);
@@ -444,8 +446,8 @@ void NotGitRepository::rm(std::vector<std::filesystem::path> paths,
     std::ifstream indexIn(ngitDirPath_ / "index");
     std::string line;
     while (std::getline(indexIn, line)) {
-        if (line.size() < 48) continue;
-        indexMap[line.substr(48)] = line.substr(0, 47);
+        if (line.size() < constants::kIndexPathStart) continue;
+        indexMap[line.substr(constants::kIndexPathStart)] = line.substr(0, constants::kIndexPathStart - 1);
     }
     indexIn.close();
 
