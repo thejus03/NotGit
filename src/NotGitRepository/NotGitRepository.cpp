@@ -51,7 +51,7 @@ NotGitRepository::NotGitRepository(const std::filesystem::path& workingDirPath) 
 }
 
 // Implements `ngit add [file]` command
-void NotGitRepository::add(const std::filesystem::path& path) {
+void NotGitRepository::add(std::vector<std::filesystem::path> paths) {
     // load existing index into map (path -> "mode sha1")
     std::unordered_map<std::string, std::string> indexMap;
     std::ifstream indexIn(ngitDirPath_ / "index");
@@ -62,10 +62,9 @@ void NotGitRepository::add(const std::filesystem::path& path) {
     }
     indexIn.close();
 
-    std::vector<std::filesystem::path> stack {path};
-    while (!stack.empty()) {
-        std::filesystem::path p = stack.back();
-        stack.pop_back();
+    while (!paths.empty()) {
+        std::filesystem::path p = paths.back();
+        paths.pop_back();
 
         if (std::filesystem::is_regular_file(p)) {
             std::ifstream file(p, std::ios::binary);
@@ -84,7 +83,7 @@ void NotGitRepository::add(const std::filesystem::path& path) {
         } else if (std::filesystem::is_directory(p)) {
             for (const auto& entry : std::filesystem::directory_iterator(p)) {
                 if (entry.path().filename() == ".ngit") continue;
-                stack.push_back(entry);
+                paths.push_back(entry);
             }
         }
     }
@@ -381,6 +380,8 @@ void NotGitRepository::restore(std::vector<std::filesystem::path> paths, bool st
                     indexMap[rel] = e.mode + " " + e.SHA1;  // revert to HEAD
                 }
             } else {
+                if (!indexMap.contains(rel))
+                    throw std::runtime_error(std::format("error: pathspec '{}' did not match any file(s) known to ngit", rel));
                 // restore working directory file from index
                 std::string sha = indexMap[rel].substr(7, 40);
                 auto obj = store_.read(sha);

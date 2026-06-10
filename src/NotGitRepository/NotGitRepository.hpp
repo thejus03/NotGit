@@ -11,7 +11,7 @@ class NotGitRepository {
 public: 
     explicit NotGitRepository(const std::filesystem::path& workingDirPath);
 
-    void add(const std::filesystem::path& path);
+    void add(std::vector<std::filesystem::path> paths);
 
     void commit(const std::string& message);
 

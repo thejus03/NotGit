@@ -60,9 +60,7 @@ int main(int argc, char** argv) {
             NotGitRepository ngitRepo (workingDir.value());
 
             if (app.got_subcommand("add")) {
-                for (const auto& path : addPaths) {
-                    ngitRepo.add(path);
-                }
+                ngitRepo.add(addPaths);
             } else if (app.got_subcommand("commit")) {
                 ngitRepo.commit(commitMessage);
             } else if (app.got_subcommand("status")) {
