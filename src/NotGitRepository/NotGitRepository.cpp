@@ -375,6 +375,9 @@ void NotGitRepository::status() {
 
 void NotGitRepository::restore(std::vector<std::filesystem::path> paths,
                                bool staged) {
+    if (staged && !latestCommitSHA_.has_value())
+        throw std::runtime_error("fatal: could not resolve HEAD");
+
     auto indexMap = loadIndex();
     auto lastCommitStateMap = flattenHeadTree();
 
