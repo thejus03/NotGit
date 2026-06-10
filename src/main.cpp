@@ -27,7 +27,12 @@ int main(int argc, char** argv) {
     app.add_subcommand("checkout", "Switch branched or restore working tree files");
     app.add_subcommand("merge", "Switch branched or restore working tree files");
     app.add_subcommand("rm", "Switch branched or restore working tree files");
-    app.add_subcommand("restore", "Switch branched or restore working tree files");
+    
+    bool staged = false;
+    std::vector<std::filesystem::path> restorePaths;
+    auto restore = app.add_subcommand("restore", "Restore working tree files");
+    restore->add_flag("-S,--staged", staged, "Restore staged files" );
+    restore->add_option("paths", restorePaths, "Restore file paths");
 
     bool oneline = false;
     auto log = app.add_subcommand("log", "Show commit logs");
@@ -73,7 +78,7 @@ int main(int argc, char** argv) {
             } else if (app.got_subcommand("diff")) {
                 std::cout << "diff command called!" << std::endl;
             } else if (app.got_subcommand("restore")) {
-                std::cout << "restore command called!" << std::endl;
+                ngitRepo.restore(restorePaths, staged);
             } else if (app.got_subcommand("rm")) {
                 std::cout << "rm command called!" << std::endl;
             } else { // command does not exist

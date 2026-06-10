@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 std::optional<std::filesystem::path> getNgitRepoWorkingDirectory(const std::filesystem::path& path);
 
@@ -17,6 +18,8 @@ public:
     void log(bool oneline);
 
     void status();
+
+    void restore(std::vector<std::filesystem::path> paths, bool staged);
 
     static void init(const std::filesystem::path& path);
      

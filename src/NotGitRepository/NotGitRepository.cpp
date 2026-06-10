@@ -304,7 +304,6 @@ void NotGitRepository::status() {
             staged.push_back({"deleted", path});
     }
 
-    // Print
     fmt::print("On branch {}\n\n", currentBranch_);
 
     if (!staged.empty()) {
@@ -333,6 +332,75 @@ void NotGitRepository::status() {
 
     if (staged.empty() && unstaged.empty() && untracked.empty())
         fmt::print("nothing to commit, working tree clean\n");
+}
+
+void NotGitRepository::restore(std::vector<std::filesystem::path> paths, bool staged) {
+
+    // load existing index into map (path -> "mode sha1")
+    std::unordered_map<std::string, std::string> indexMap;
+    std::ifstream indexIn(ngitDirPath_ / "index");
+    std::string line;
+    while (std::getline(indexIn, line)) {
+        if (line.size() < 48) continue;
+        indexMap[line.substr(48)] = line.substr(0, 47);
+    }
+    indexIn.close();
+
+    // load last commit state of each file (path -> TreeEntry)
+    std::unordered_map<std::string, TreeEntry> lastCommitStateMap;
+    if (latestCommitSHA_.has_value()) {
+        auto commitObj = store_.read(*latestCommitSHA_);
+        auto* commit = dynamic_cast<CommitObject*>(commitObj.get());
+        std::vector<std::pair<std::string, std::string>> treeStack;
+        treeStack.push_back({commit->treeSHA(), ""});
+        while (!treeStack.empty()) {
+            auto [sha, prefix] = treeStack.back();
+            treeStack.pop_back();
+            auto treeObj = store_.read(sha);
+            auto* tree = dynamic_cast<TreeObject*>(treeObj.get());
+            for (const auto& entry : tree->entries()) {
+                std::string fullPath = prefix.empty() ? entry.name : prefix + "/" + entry.name;
+                if (entry.mode == Mode::TREE)
+                    treeStack.push_back({entry.SHA1, fullPath});
+                else
+                    lastCommitStateMap[fullPath] = entry;
+            }
+        }
+    }
+
+    while (!paths.empty()) {
+        auto path = paths.back();
+        paths.pop_back();
+        if (std::filesystem::is_regular_file(path)) {
+            std::string rel = std::filesystem::relative(path, workingDirPath_).string();
+            if (staged) {
+                if (!lastCommitStateMap.contains(rel))
+                    indexMap.erase(rel);  // new file: remove from index
+                else {
+                    const auto& e = lastCommitStateMap[rel];
+                    indexMap[rel] = e.mode + " " + e.SHA1;  // revert to HEAD
+                }
+            } else {
+                // restore working directory file from index
+                std::string sha = indexMap[rel].substr(7, 40);
+                auto obj = store_.read(sha);
+                auto* blob = dynamic_cast<BlobObject*>(obj.get());
+                std::ofstream out(path, std::ios::binary);
+                out << blob->rawData();
+            }
+        } else if (std::filesystem::is_directory(path)) {
+            for (const auto& entry : std::filesystem::directory_iterator(path)) {
+                if (entry.path().filename() == ".ngit") continue;
+                paths.push_back(entry);
+            }
+        }
+    }
+
+    if (staged) {
+        std::ofstream indexOut(ngitDirPath_ / "index");
+        for (const auto& [filePath, modeAndSha] : indexMap)
+            indexOut << modeAndSha << " " << filePath << "\n";
+    }
 }
 
 void NotGitRepository::init (const std::filesystem::path& path) {
