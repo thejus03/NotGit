@@ -1,20 +1,22 @@
 #include "TreeObject.hpp"
-#include <vector>
-#include <utility>
+
 #include <algorithm>
 #include <format>
+#include <utility>
+#include <vector>
 
 static std::string hexToBinary(const std::string& hex);
 
-TreeObject::TreeObject(std::vector<TreeEntry> entities) 
-    : 
-    entities_(std::move(entities)) {
-    std::sort(entities_.begin(), entities_.end(), [](const TreeEntry& a, const TreeEntry& b) {
-        if (a.name == b.name) {
-            return a.mode != Mode::TREE; // file comes before directory with same name
-        }
-        return a.name < b.name;
-    });
+TreeObject::TreeObject(std::vector<TreeEntry> entities)
+    : entities_(std::move(entities)) {
+    std::sort(entities_.begin(), entities_.end(),
+              [](const TreeEntry& a, const TreeEntry& b) {
+                  if (a.name == b.name) {
+                      return a.mode != Mode::TREE;  // file comes before
+                                                    // directory with same name
+                  }
+                  return a.name < b.name;
+              });
     data_ = buildRawData();
 }
 
@@ -25,9 +27,7 @@ std::string TreeObject::header() const {
 std::string TreeObject::rawData() const { return data_; }
 const std::vector<TreeEntry>& TreeObject::entries() const { return entities_; }
 
-
 std::string TreeObject::buildRawData() const {
-
     std::string res;
     for (const auto& entityPtr : entities_) {
         res += std::format("{} {}", entityPtr.mode, entityPtr.name);
@@ -36,7 +36,6 @@ std::string TreeObject::buildRawData() const {
     }
     return res;
 }
-
 
 static std::string hexToBinary(const std::string& hex) {
     std::string binary;

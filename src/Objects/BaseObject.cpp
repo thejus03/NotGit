@@ -1,22 +1,23 @@
 
 #include "BaseObject.hpp"
+
 #include <openssl/evp.h>
-#include <sstream>
+
 #include <iomanip>
+#include <sstream>
 #include <stdexcept>
 
 std::string BaseObject::sha1() const {
     std::string data = header() + rawData();
-    
+
     // Code is slightly more verbose but this
     // is the modern approach for OpenSSL for SHA-1
-    
+
     unsigned char hash[EVP_MAX_MD_SIZE];
     unsigned int hashLen;
     // Create an EVP context object
     EVP_MD_CTX* context = EVP_MD_CTX_new();
-    if (!context)
-        throw std::runtime_error("Failed to create EVP_MD_CTX");
+    if (!context) throw std::runtime_error("Failed to create EVP_MD_CTX");
     // Set sha1 algorithm into context
     EVP_DigestInit_ex(context, EVP_sha1(), nullptr);
     // Feed the data into the sha1 algorithm
@@ -25,7 +26,6 @@ std::string BaseObject::sha1() const {
     EVP_DigestFinal_ex(context, hash, &hashLen);
     // Free the context
     EVP_MD_CTX_free(context);
-
 
     // Convert encrypted data into hexadecimal
     std::ostringstream ss;

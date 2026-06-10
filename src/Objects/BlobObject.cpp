@@ -1,4 +1,5 @@
 #include "BlobObject.hpp"
+
 #include <format>
 
 BlobObject::BlobObject(const std::string& data) : data_(data) {}
